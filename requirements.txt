@@ -6,7 +6,7 @@ charset-normalizer==3.4.0
 click==8.1.7
 cmake==3.31.2
 contextlib2==21.6.0
-contourpy==1.3.1
+contourpy==1.3.0
 cycler==0.12.1
 docker-pycreds==0.4.0
 einops==0.7.0
@@ -22,10 +22,10 @@ huggingface-hub==0.26.5
 idna==3.10
 Jinja2==3.1.4
 joblib==1.4.2
-kiwisolver==1.4.8
+kiwisolver==1.4.7
 lit==18.1.8
 MarkupSafe==2.1.5
-matplotlib==3.10.0
+matplotlib==3.9.4
 ml_collections==0.1.1
 mpmath==1.3.0
 mypy-extensions==1.0.0

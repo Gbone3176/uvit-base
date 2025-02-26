@@ -609,7 +609,8 @@ class ChestXray14FeatureDataset(Dataset):
         z = np.load(os.path.join(self.root, f'{index}.npy'))
         k = random.randint(0, self.n_captions[index] - 1)
         # c = np.load(os.path.join(self.root, f'{index}_{k}.npy'))  # 原始文本数据集
-
+        # print("read original datasets")
+        
         # 从SPB中查询后的文本数据集
         c = np.load(os.path.join(self.root_query, f'{index}_{k}.npy'))
 
@@ -619,6 +620,7 @@ class ChestXray14_256Features(DatasetFactory):  # the moments calculated by Stab
     def __init__(self, path, cfg=False, p_uncond=None):
         super().__init__()
         print('Prepare dataset for t2i task...')
+        print("query from SPB...")
         self.train = ChestXray14FeatureDataset(os.path.join(path, 'train'))
         self.test = ChestXray14FeatureDataset(os.path.join(path, 'val'))
         assert len(self.train) == 64352

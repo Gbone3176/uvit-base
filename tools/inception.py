@@ -204,7 +204,7 @@ def fid_inception_v3():
     inception.Mixed_7c = FIDInceptionE_2(2048)
 
     # state_dict = load_state_dict_from_url(FID_WEIGHTS_URL, progress=True)
-    state_dict = torch.load('/cpfs01/projects-HDD/cfff-906dc71fafda_HDD/gbw_21307130160/U-ViT/weights/pt_inception-2015-12-05-6726825d.pth')
+    state_dict = torch.load('/storage/U-ViT/weights/pt_inception-2015-12-05-6726825d.pth')
     inception.load_state_dict(state_dict)
     return inception
 

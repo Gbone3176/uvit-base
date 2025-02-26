@@ -9,7 +9,7 @@ def d(**kwargs):
 def get_config():
     config = ml_collections.ConfigDict()
 
-    config.seed = 1206
+    config.seed = 42
     config.z_shape = (4, 32, 32)
 
     config.autoencoder = d(
@@ -18,8 +18,8 @@ def get_config():
     )
 
     config.train = d(
-        n_steps=80000,
-        batch_size=512,
+        n_steps=100000,
+        batch_size=256,
         log_interval=500,
         eval_interval=5000,
         save_interval=5000,
@@ -61,7 +61,7 @@ def get_config():
 
     config.dataset = d(
         name='ChestXray14_features',
-        path='/cpfs01/projects-HDD/cfff-906dc71fafda_HDD/gbw_21307130160/U-ViT/assets/ChestXray14-256_features',
+        path='/storage/U-ViT/assets/datasets/ChestXray14-256_features',
         cfg=True,
         p_uncond=0.1
     )
@@ -72,7 +72,7 @@ def get_config():
         mini_batch_size=50,
         cfg=True,
         scale=1.,
-        path='/cpfs01/projects-HDD/cfff-906dc71fafda_HDD/gbw_21307130160/U-ViT/sample/ChestXray-t2i-query'
+        path='/storage/U-ViT/sample/ChestXray-t2i-query'
     )
 
     return config

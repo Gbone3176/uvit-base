@@ -164,8 +164,14 @@ accelerate launch --multi_gpu --num_processes 4 --mixed_precision fp16 train_t2i
 # MS-COCO (U-ViT-S/2, Deep)
 accelerate launch --multi_gpu --num_processes 4 --mixed_precision fp16 train_t2i_discrete.py --config=configs/mscoco_uvit_small.py --config.nnet.depth=16
 
-# ChestXray14 (U-ViT-S/2)
+# ChestXray14 (U-ViT-S/2) T2I
+
+#原始版本
 CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i.py
+#query版本
+CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_query.py
+#RL版本
+CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_RL.py
 
 # ChestXray14 256x256 (U-ViT-H/2)
 CUDA_VISIBLE_DEVICES=0,6 accelerate launch --multi_gpu --num_processes 2 --mixed_precision fp16 train_ldm_discrete.py --config=configs/chestXray14_256_ldm_uvit.py
