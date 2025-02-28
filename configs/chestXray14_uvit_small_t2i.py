@@ -18,17 +18,11 @@ def get_config():
     )
 
     config.train = d(
-        n_steps=80000,
-        batch_size=512,
+        n_steps=100000,
+        batch_size=256,
         log_interval=500,
         eval_interval=5000,
         save_interval=5000,
-
-        # n_steps=3,
-        # batch_size=2,
-        # log_interval=1,
-        # eval_interval=1,
-        # save_interval=1,
     )
 
     config.optimizer = d(
@@ -40,8 +34,7 @@ def get_config():
 
     config.lr_scheduler = d(
         name='customized',
-        warmup_steps=5000
-        # warmup_steps=500
+        warmup_steps=5
     )
 
     config.nnet = d(
@@ -61,7 +54,7 @@ def get_config():
 
     config.dataset = d(
         name='ChestXray14_features',
-        path='/cpfs01/projects-HDD/cfff-906dc71fafda_HDD/gbw_21307130160/U-ViT/assets/ChestXray14-256_features',
+        path='/storage/U-ViT/assets/datasets/ChestXray14-256_features',
         cfg=True,
         p_uncond=0.1
     )
@@ -72,7 +65,7 @@ def get_config():
         mini_batch_size=50,
         cfg=True,
         scale=1.,
-        path='/cpfs01/projects-HDD/cfff-906dc71fafda_HDD/gbw_21307130160/U-ViT/sample/ChestXray-t2i-query'
+        path='/storage/U-ViT/sample/ChestXray-t2i'
     )
 
     return config

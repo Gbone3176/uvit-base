@@ -9,7 +9,7 @@ def d(**kwargs):
 def get_config():
     config = ml_collections.ConfigDict()
 
-    config.seed = 42
+    config.seed = 1206
     config.z_shape = (4, 32, 32)
 
     config.autoencoder = d(
@@ -40,8 +40,7 @@ def get_config():
 
     config.lr_scheduler = d(
         name='customized',
-        warmup_steps=5000
-        # warmup_steps=500
+        warmup_steps=5
     )
 
     config.nnet = d(

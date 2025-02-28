@@ -486,13 +486,19 @@ def main():
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device)
 
-    scale_factor = 0.18215
+    # scale_factor = 0.18215
+    scale_factor = 0.2301
     T = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(256), transforms.ToTensor()])
-    path = 'imgs'
+    path = '/storage/U-ViT/libs/imgs'
     fnames = os.listdir(path)
     for fname in fnames:
         p = os.path.join(path, fname)
         img = Image.open(p)
+        
+        # Check if the image is grayscale and convert to RGB if necessary
+        if img.mode == 'L':
+            img = img.convert('RGB')
+        
         img = T(img)
         img = img * 2. - 1
         img = img[None, ...]
