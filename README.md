@@ -169,7 +169,7 @@ accelerate launch --multi_gpu --num_processes 4 --mixed_precision fp16 train_t2i
 #原始版本
 CUDA_VISIBLE_DEVICES=2,7 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i.py
 #query版本
-CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_query.py
+CUDA_VISIBLE_DEVICES=2,7 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_query.py
 #RL版本
 CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_RL.py
 
@@ -241,6 +241,10 @@ accelerate launch --multi_gpu --num_processes 4 --mixed_precision fp16 eval_t2i_
 
 # chestXray14 256x256 (U-ViT-H/2 Prototype)
 accelerate launch --num_processes 2 --mixed_precision fp16 eval_ldm_pro.py --config=configs/chestXray14_256_ldm_uvit_pro.py --nnet_path=/cpfs01/projects-HDD/cfff-906dc71fafda_HDD/gbw_21307130160/U-ViT/workdir/chestXray14_256_ldm_uvit_pro-seed42/default/ckpts/65000.ckpt/nnet.pth
+
+
+# ChestXray14  (U-ViT-S/2, Deep)
+CUDA_VISIBLE_DEVICES=4,7 accelerate launch --multi_gpu --num_processes 2 --mixed_precision fp16 eval_t2i_discrete.py --config=/storage/U-ViT/configs/chestXray14_uvit_small_t2i.py --config.nnet.depth=12 --nnet_path=/storage/U-ViT/workdir/chestXray14_uvit_small_t2i/default/ckpts/55000.ckpt/nnet.pth
 
 ```
 

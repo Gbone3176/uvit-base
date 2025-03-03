@@ -23,12 +23,6 @@ def get_config():
         log_interval=500,
         eval_interval=5000,
         save_interval=5000,
-
-        # n_steps=3,
-        # batch_size=2,
-        # log_interval=1,
-        # eval_interval=1,
-        # save_interval=1,
     )
 
     config.optimizer = d(
