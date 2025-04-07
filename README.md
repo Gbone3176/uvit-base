@@ -106,15 +106,39 @@ The autoencoders are used in latent diffusion models.
 * ImageNet 256x256 and ImageNet 512x512: Extract ImageNet features according to `scripts/extract_imagenet_feature.py`.
 * MS-COCO: Download COCO 2014 [training](http://images.cocodataset.org/zips/train2014.zip), [validation](http://images.cocodataset.org/zips/val2014.zip) data and [annotations](http://images.cocodataset.org/annotations/annotations_trainval2014.zip). Then extract their features according to `scripts/extract_mscoco_feature.py` `scripts/extract_test_prompt_feature.py` `scripts/extract_empty_feature.py`.
 
+the corresponding txt is stored at `/storage/U-ViT/scripts/Vis_caps`
+
+```bash
+#Biomedclip
+
+# pubmedclip
+CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-pubmedclip/extract_CXR14_feature.py
+
+CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-pubmedclip/extract_empty_feature.py
+
+CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-pubmedclip/extract_test_prompt_feature.py
+
+# 以下是BERT系列的model_name
+# michiyasunaga/BioLinkBERT-base (256)
+# michiyasunaga/BioLinkBERT-large (256 hidden_size 1024, 似乎不太可行)
+# microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+# cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+# StanfordAIMI/RadBERT
+
+#bert-series
+CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_CXR14_feature.py --split train --version michiyasunaga/BioLinkBERT-large
+
+CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_empty_feature.py --version StanfordAIMI/RadBERT
+
+CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_test_prompt_feature.py --version StanfordAIMI/RadBERT
+```
+
 #### Reference statistics for FID
 Download `fid_stats` directory from this [link](https://drive.google.com/drive/folders/1yo-XhqbPue3rp5P57j6QbA5QZx6KybvP?usp=sharing) (which contains reference statistics for FID).
 Put the downloaded directory as `assets/fid_stats` in this codebase.
 In addition to evaluation, these reference statistics are used to monitor FID during the training process.
 
 ## Training
-
-
-
 We use the [huggingface accelerate](https://github.com/huggingface/accelerate) library to help train with distributed data parallel and mixed precision. The following is the training command:
 ```sh
 # the training setting
@@ -164,20 +188,36 @@ accelerate launch --multi_gpu --num_processes 4 --mixed_precision fp16 train_t2i
 # MS-COCO (U-ViT-S/2, Deep)
 accelerate launch --multi_gpu --num_processes 4 --mixed_precision fp16 train_t2i_discrete.py --config=configs/mscoco_uvit_small.py --config.nnet.depth=16
 
-# ChestXray14 (U-ViT-S/2) T2I
-
+# ChestXray14 (U-ViT-S/2) T2I @Biomedclip
 #原始版本
-CUDA_VISIBLE_DEVICES=2,7 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i.py
-#query版本
-CUDA_VISIBLE_DEVICES=2,7 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_query.py
-#RL版本
-CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_RL.py
+CUDA_VISIBLE_DEVICES=2,3 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i.py
 
-# ChestXray14 256x256 (U-ViT-H/2)
-CUDA_VISIBLE_DEVICES=0,6 accelerate launch --multi_gpu --num_processes 2 --mixed_precision fp16 train_ldm_discrete.py --config=configs/chestXray14_256_ldm_uvit.py
+#query版本,不work
+CUDA_VISIBLE_DEVICES=2,3 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_query.py
 
-# ChestXray14 256x256 (U-ViT-H/2 Prototype)
+# ChestXray14 256x256 (U-ViT-S/2 @pubmedclip)
+CUDA_VISIBLE_DEVICES=2,3 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_pubmedclip.py
+
+# michiyasunaga/BioLinkBERT-base 
+# michiyasunaga/BioLinkBERT-large (hidden_size 1024, 似乎不太可行)
+# microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+# cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+# StanfordAIMI/RadBERT
+
+# ChestXray14 256x256 (U-ViT-S/2 @bert-series)
+CUDA_VISIBLE_DEVICES=2,3 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_bert.py --config.model_name_or_path=michiyasunaga/BioLinkBERT-base
+
+# #RL版本没做
+# CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_RL.py
+
+
+
+# ChestXray14 256x256 (U-ViT-H/2 @Biomedclip) 标签生图
+CUDA_VISIBLE_DEVICES=0,6 accelerate launch --multi_gpu --num_processes 2 --mixed_precision fp16 train_ldm_discrete.py --config=configs/chestXray14_256_ldm_uvit.py 
+
+# ChestXray14 256x256 (U-ViT-H/2 @Biomedclip & Prototype)
 CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch --multi_gpu --num_processes 4 --mixed_precision fp16 train_ldm_pro.py --config=configs/chestXray14_256_ldm_uvit_pro.py
+
 ```
 
 ## Fetch the statistics of datasets
@@ -242,10 +282,8 @@ accelerate launch --multi_gpu --num_processes 4 --mixed_precision fp16 eval_t2i_
 # chestXray14 256x256 (U-ViT-H/2 Prototype)
 accelerate launch --num_processes 2 --mixed_precision fp16 eval_ldm_pro.py --config=configs/chestXray14_256_ldm_uvit_pro.py --nnet_path=/cpfs01/projects-HDD/cfff-906dc71fafda_HDD/gbw_21307130160/U-ViT/workdir/chestXray14_256_ldm_uvit_pro-seed42/default/ckpts/65000.ckpt/nnet.pth
 
-
-# ChestXray14  (U-ViT-S/2, Deep)
-CUDA_VISIBLE_DEVICES=4,7 accelerate launch --multi_gpu --num_processes 2 --mixed_precision fp16 eval_t2i_discrete.py --config=/storage/U-ViT/configs/chestXray14_uvit_small_t2i.py --config.nnet.depth=12 --nnet_path=/storage/U-ViT/workdir/chestXray14_uvit_small_t2i/default/ckpts/55000.ckpt/nnet.pth
-
+# ChestXray14  (U-ViT-S/2)
+CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 --main_process_port 29501 eval_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_bert.py --config.model_name_or_path=michiyasunaga/BioLinkBERT-base --nnet_path=/storage/U-ViT/workdir/chestXray14_uvit_small_t2i_bert/BioLinkBERT-base/ckpts/60000.ckpt/nnet.pth 
 ```
 
 

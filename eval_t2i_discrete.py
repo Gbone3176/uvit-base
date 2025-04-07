@@ -42,8 +42,10 @@ def evaluate(config):
 
     dataset = get_dataset(**config.dataset)
     test_dataset = dataset.get_split(split='test', labeled=True)  # for sampling
-    test_dataset_loader = DataLoader(test_dataset, batch_size=config.sample.mini_batch_size, shuffle=True,
-                                     drop_last=True, num_workers=8, pin_memory=True, persistent_workers=True)
+    # test_dataset_loader = DataLoader(test_dataset, batch_size=config.sample.mini_batch_size, shuffle=True,
+    #                                  drop_last=True, num_workers=8, pin_memory=True, persistent_workers=True)
+    test_dataset_loader = DataLoader(test_dataset, batch_size=config.sample.mini_batch_size, shuffle=False,
+                                     drop_last=False, num_workers=12, pin_memory=True, persistent_workers=True)
 
     nnet = utils.get_nnet(**config.nnet)
     nnet, test_dataset_loader = accelerator.prepare(nnet, test_dataset_loader)

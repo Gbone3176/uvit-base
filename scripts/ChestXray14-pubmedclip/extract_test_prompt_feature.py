@@ -1,12 +1,15 @@
 import torch
 import os
 import numpy as np
+
+import sys
+print(sys.path)
+
 import libs.autoencoder
 import libs.clip
 from datasets import MSCOCODatabase
 import argparse
 from tqdm import tqdm
-
 
 def main():
     prompts = []
@@ -20,19 +23,18 @@ def main():
             prompts.append(f.read())
 
     device = 'cuda'
-    clip = libs.clip.BioMedClipEmbedder()
+    clip = libs.clip.PubMedClipEmbedder()
     clip.eval()
     clip.to(device)
 
-    save_dir = f'/storage/U-ViT/assets/datasets/ChestXray14-256_features/run_vis'
+    save_dir = f'/storage/U-ViT/assets/datasets/ChestXray14-256_features-pubmedclip/run_vis'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
-    latent = clip.encode(prompts)['last_hidden_state']
+    latent = clip.encode(prompts)
     for i in range(len(latent)):
         c = latent[i].detach().cpu().numpy()
         np.save(os.path.join(save_dir, f'{i}.npy'), {"prompt":prompts[i], "context":c}, allow_pickle=True)
     print("finished: extract test prompt features")
-
 
 if __name__ == '__main__':
     main()

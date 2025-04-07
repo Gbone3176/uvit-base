@@ -320,7 +320,7 @@ def main(argv):
     config = FLAGS.config
     config.config_name = get_config_name()
     config.hparams = get_hparams()
-    config.workdir = FLAGS.workdir or os.path.join('workdir', config.config_name, config.hparams)
+    config.workdir = FLAGS.workdir or os.path.join('workdir', config.config_name, config.hparams.split('=')[-1])
     config.ckpt_root = os.path.join(config.workdir, 'ckpts')
     config.sample_dir = os.path.join(config.workdir, 'samples')
     train(config)

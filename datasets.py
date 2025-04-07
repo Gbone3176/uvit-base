@@ -552,6 +552,8 @@ class ChestXray14Database(Dataset):
             root (str): 数据集根目录，包含图像和报告的子目录。
             csv_file (str): 包含图像和标签对应关系的CSV文件路径。
             size (int, optional): 图像的目标尺寸（高度和宽度）。默认为None。
+        Function:
+            用于提取文本和图像特征。
         """
         self.root = root
         self.height = self.width = size
@@ -563,7 +565,7 @@ class ChestXray14Database(Dataset):
         path = os.path.join(self.root, 'images', key)
         return Image.open(path).convert("RGB")
 
-    def _load_target(self, key: str):
+    def _load_target(self, key: str) -> dict:
         # 获取标签
         labels = self.df[self.df['Image Index'] == key].iloc[:, 2:].values.flatten().tolist()
         label = labels.index(1)
@@ -598,20 +600,19 @@ class ChestXray14FeatureDataset(Dataset):
     # the image features are got through sample
     def __init__(self, root):
         self.root = root
-        self.root_query = root + '_query'
+        # self.root_query = root + '_query' # 用于SPB的方法，不work
         self.num_data, self.n_captions = get_feature_dir_info(root)
         
-
     def __len__(self):
         return self.num_data
 
     def __getitem__(self, index):
         z = np.load(os.path.join(self.root, f'{index}.npy'))
         k = random.randint(0, self.n_captions[index] - 1)
-        # c = np.load(os.path.join(self.root, f'{index}_{k}.npy'))  # 原始文本数据集
+        c = np.load(os.path.join(self.root, f'{index}_{k}.npy'))  # 原始文本数据集
         
         # 从SPB中查询后的文本数据集
-        c = np.load(os.path.join(self.root_query, f'{index}_{k}.npy'))
+        # c = np.load(os.path.join(self.root_query, f'{index}_{k}.npy'))
 
         return z, c
 
@@ -619,9 +620,11 @@ class ChestXray14_256Features(DatasetFactory):  # the moments calculated by Stab
     def __init__(self, path, cfg=False, p_uncond=None):
         super().__init__()
         print('Prepare dataset for t2i task...')
-        print("query from ...")
         self.train = ChestXray14FeatureDataset(os.path.join(path, 'train'))
         self.test = ChestXray14FeatureDataset(os.path.join(path, 'val'))
+        train_path = os.path.join(path, 'train')
+        print(f"length of train set {train_path} is ", len(self.train))
+
         assert len(self.train) == 64352
         assert len(self.test) == 9119
         print('Prepare dataset ok')

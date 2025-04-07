@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug extract_CXR14_feature.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/ChestXray14-bert/extract_test_prompt_feature.py",
+            "console": "integratedTerminal",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "2",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false,
+            "args": [
+                "--version","StanfordAIMI/RadBERT"
+            ]
+        }
+    ]
+}

@@ -2,6 +2,31 @@ import torch
 import torch.nn as nn
 from transformers import CLIPTokenizer, CLIPTextModel
 from open_clip import create_model_and_transforms, get_tokenizer
+import os
+os.CUDA_VISIBLE_DEVICES = '2'
+from transformers import (
+    AutoConfig,
+    AutoModelForTokenClassification,
+    AutoTokenizer,
+    DataCollatorForTokenClassification,
+    HfArgumentParser,
+    PreTrainedTokenizerFast,
+    Trainer,
+    TrainingArguments,
+    set_seed,
+    AutoModel,
+    
+
+    CLIPPreTrainedModel,
+    CLIPTextModel, 
+    CLIPTextConfig,
+    CLIPTokenizerFast, 
+    PreTrainedModel, 
+    CLIPConfig
+)
+from transformers.trainer_utils import get_last_checkpoint
+from transformers.utils import check_min_version
+from transformers.utils.versions import require_version
 
 import sys
 # 将官方 timm 模块的路径添加到 sys.path 的最前面,避免导入libs下的timm
@@ -66,21 +91,89 @@ class BioMedClipEmbedder(AbstractEncoder):
     def forward(self, text):
         # Tokenize the input text
         token_embeddings = self.tokenizer(text, context_length=self.max_length).to(self.device)
-
+        outputs = self.encoder(token_embeddings) # (batch_size, max_length, hidden_size)
+        
         # Get the hidden states from the transformer
-        pooler_output, last_hidden_state = self.encoder(token_embeddings)
-        return  {"pooler_output": pooler_output, "last_hidden_state":last_hidden_state}
-
+        z = outputs[1] # 取出hidden_size
+        return z
 
     def encode(self, text):
         return self(text)
 
+class PubMedClipEmbedder(AbstractEncoder):
+    """Uses the PubMedCLIP transformer encoder for text embeddings"""
+    def __init__(self, version="flaviagiammarino/pubmed-clip-vit-base-patch32", device="cuda", max_length=77):
+        super().__init__()
+        self.tokenizer = AutoTokenizer.from_pretrained(version)
+        self.transformer = CLIPTextModel.from_pretrained(version)
+        self.device = device
+        self.max_length = max_length
+        self.freeze()
+
+    def freeze(self):
+        self.transformer = self.transformer.eval()
+        for param in self.parameters():
+            param.requires_grad = False
+
+    def forward(self, text):
+        batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
+                                        return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
+        tokens = batch_encoding["input_ids"].to(self.device) # (batch_size, max_length)
+        outputs = self.transformer(input_ids=tokens) # (batch_size, max_length, hidden_size)
+
+        z = outputs.last_hidden_state
+        return z
+
+    def encode(self, text):  
+        return self(text) # 自动调用forward方法
+
+class BertEmbedder(AbstractEncoder):
+    """Uses the BERT transformer encoder for text (from Hugging Face)"""
+    def __init__(self, version="StanfordAIMI/RadBERT", device="cuda", max_length=256):
+        super().__init__()
+        
+        print("\n")
+        print("**TextEmbedder**:", version)
+        print("\n")
+
+        # Load the model and tokenizer from Hugging Face Hub
+        self.tokenizer = AutoTokenizer.from_pretrained(version)
+        self.bert_model = AutoModel.from_pretrained(version)
+        self.device = device
+        self.max_length = max_length
+
+        self.freeze()
+
+    def freeze(self):
+        self.bert_model = self.bert_model.eval()
+        for param in self.parameters():
+            param.requires_grad = False
+
+    def forward(self, text):
+        batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
+                                        return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
+        tokens = batch_encoding["input_ids"].to(self.device) # (batch_size, max_length)
+        outputs = self.bert_model(input_ids=tokens) # (batch_size, max_length, hidden_size)
+
+        z = outputs.last_hidden_state
+        return z
+
+    def encode(self, text):  
+        return self(text) # 自动调用forward方法
+    
+
+# 以下是BERT系列的model_name
+# michiyasunaga/BioLinkBERT-base 256
+# michiyasunaga/BioLinkBERT-large 256 hidden_size 1024, 似乎不太可行
+# microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+# cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+# StanfordAIMI/RadBERT
 
 # 测试代码
 def test_frozen_clip_embedder():
     # 初始化编码器
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    embedder = BioMedClipEmbedder(device=device)
+    embedder = BertEmbedder(device=device)
     embedder.to(device)
 
     # 测试文本

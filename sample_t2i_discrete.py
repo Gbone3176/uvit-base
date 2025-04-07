@@ -100,8 +100,6 @@ def evaluate(config):
     for sample, prompt in zip(samples, prompts):
         save_image(sample, os.path.join(config.output_path, f"{prompt}.png"))
 
-
-
 from absl import flags
 from absl import app
 from ml_collections import config_flags

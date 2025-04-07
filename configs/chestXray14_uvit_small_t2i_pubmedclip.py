@@ -12,6 +12,10 @@ def get_config():
     config.seed = 1206
     config.z_shape = (4, 32, 32)
 
+    config.model_name_or_path = "pubmedclip"
+    config.resolution = 256
+
+
     config.autoencoder = d(
         pretrained_path='assets/stable-diffusion/autoencoder_kl.pth',
         scale_factor=0.23010
@@ -54,7 +58,7 @@ def get_config():
 
     config.dataset = d(
         name='ChestXray14_features',
-        path='/storage/U-ViT/assets/datasets/ChestXray14-256_features-BiomedCLIP',
+        path=f'/storage/U-ViT/assets/datasets/ChestXray14-{config.resolution}_features-{config.model_name_or_path.split("/")[-1]}',
         cfg=True,
         p_uncond=0.1
     )
@@ -65,7 +69,7 @@ def get_config():
         mini_batch_size=50,
         cfg=True,
         scale=1.,
-        path='/storage/U-ViT/sample/ChestXray-t2i'
+        path=f'/storage/U-ViT/sample/ChestXray-t2i-{config.resolution}_features-{config.model_name_or_path.split("/")[-1]}'
     )
 
     return config
