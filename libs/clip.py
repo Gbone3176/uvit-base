@@ -88,6 +88,16 @@ class BioMedClipEmbedder(AbstractEncoder):
         for param in self.parameters():
             param.requires_grad = False
 
+    def token(self, texts):
+        """Tokenize the input text using the tokenizer."""
+        inner_tokenizer = self.tokenizer.tokenizer
+        tokens = []
+        for text in texts:
+            token_embeddings = inner_tokenizer(text, max_length=self.max_length)
+            token = inner_tokenizer.convert_ids_to_tokens(token_embeddings["input_ids"])
+            tokens.append(token)
+        return tokens
+    
     def forward(self, text):
         # Tokenize the input text
         token_embeddings = self.tokenizer(text, context_length=self.max_length).to(self.device)

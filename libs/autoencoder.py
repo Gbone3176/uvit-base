@@ -1,3 +1,4 @@
+from matplotlib import pyplot as plt
 import torch
 import torch.nn as nn
 import numpy as np
@@ -474,7 +475,21 @@ def get_model(pretrained_path, scale_factor=0.18215):
     )
     return FrozenAutoencoderKL(ddconfig, 4, pretrained_path, scale_factor)
 
-
+# 保存函数
+def save_channels(arr, prefix, output_dir):
+    for i in range(arr.shape[0]):
+        channel = arr[i]
+        # 自动归一化到 [0,1]
+        channel_norm = (channel - np.min(channel)) / (np.max(channel) - np.min(channel))
+        # 直接保存为PNG
+        plt.imsave(
+            f"{output_dir}/{prefix}_channel_{i}.png",
+            channel_norm,
+            cmap="gray",
+            origin="lower",  # 确保像素方向正确
+            vmin=0,
+            vmax=1
+        )
 
 def main():
     import torchvision.transforms as transforms
@@ -492,8 +507,13 @@ def main():
     path = '/storage/U-ViT/libs/imgs'
     fnames = os.listdir(path)
     for fname in fnames:
+        if not fname.endswith('.jpg'):
+            continue
         p = os.path.join(path, fname)
         img = Image.open(p)
+        # Create a frame directory to store images if it doesn't exist
+        out_dir = os.path.join(path, fname.split('.')[0])
+        os.makedirs(out_dir, exist_ok=True)
         
         # Check if the image is grayscale and convert to RGB if necessary
         if img.mode == 'L':
@@ -514,11 +534,26 @@ def main():
 
         with torch.cuda.amp.autocast():
             print('test encode & decode')
-            recons = [model.decode(model.encode(img)) for _ in range(4)]
+            moments = model.encode_moments(img)
+            mean, logvar = torch.chunk(moments, 2, dim=1)
+            logvar = torch.clamp(logvar, -30.0, 20.0)
+            std = torch.exp(0.5 * logvar)
+            zs = [(mean + std * torch.randn_like(mean)) * scale_factor for _ in range(4)]
+            recons = [model.decode(z) for z in zs]
+
+
+            mean = mean.squeeze(0).cpu().numpy()
+            logvar = logvar.squeeze(0).cpu().numpy()
+
+            # 保存所有通道
+            save_channels(mean, "mean", out_dir)
+            save_channels(logvar, "logvar", out_dir)
+
+            
 
         out = torch.cat([img, *recons], dim=0)
         out = (out + 1) * 0.5
-        save_image(out, f'recons_{fname}')
+        save_image(out, os.path.join(out_dir, f'recons_{fname}'))
 
 
 if __name__ == "__main__":

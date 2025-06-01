@@ -10,7 +10,10 @@ import builtins
 import einops
 import libs.autoencoder
 import libs.clip
+import numpy as np
 from torchvision.utils import save_image
+from tqdm import tqdm
+
 
 
 def stable_diffusion_beta_schedule(linear_start=0.00085, linear_end=0.0120, n_timestep=1000):
@@ -21,6 +24,8 @@ def stable_diffusion_beta_schedule(linear_start=0.00085, linear_end=0.0120, n_ti
 
 
 def evaluate(config):
+
+
     if config.get('benchmark', False):
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
@@ -41,17 +46,16 @@ def evaluate(config):
 
     dataset = get_dataset(**config.dataset)
 
-    with open(config.input_path, 'r') as f:
-        prompts = f.read().strip().split('\n')
+    # with open(config.input_path, 'r') as f:
+    #     prompts = f.read().strip().split('\n')
 
-    print(prompts)
+    # print(prompts)
 
-    clip = libs.clip.FrozenCLIPEmbedder()
-    clip.eval()
-    clip.to(device)
-
-    contexts = clip.encode(prompts)
-
+    # clip = libs.clip.FrozenCLIPEmbedder()
+    # clip.eval()
+    # clip.to(device)
+            
+    # contexts = clip.encode(prompts)
     nnet = utils.get_nnet(**config.nnet)
     nnet = accelerator.prepare(nnet)
     logging.info(f'load nnet from {config.nnet_path}')
@@ -67,7 +71,7 @@ def evaluate(config):
         _uncond = nnet(x, timesteps, context=_empty_context)
         return _cond + config.sample.scale * (_cond - _uncond)
 
-    autoencoder = libs.autoencoder.get_model(config.autoencoder.pretrained_path)
+    autoencoder = libs.autoencoder.get_model(**config.autoencoder)
     autoencoder.to(device)
 
     @torch.cuda.amp.autocast()
@@ -85,20 +89,50 @@ def evaluate(config):
     logging.info(f'mixed_precision={config.mixed_precision}')
     logging.info(f'N={N}')
 
-    z_init = torch.randn(contexts.size(0), *config.z_shape, device=device)
-    noise_schedule = NoiseScheduleVP(schedule='discrete', betas=torch.tensor(_betas, device=device).float())
 
-    def model_fn(x, t_continuous):
-        t = t_continuous * N
-        return cfg_nnet(x, t, context=contexts)
-
-    dpm_solver = DPM_Solver(model_fn, noise_schedule, predict_x0=True, thresholding=False)
-    z = dpm_solver.sample(z_init, steps=config.sample.sample_steps, eps=1. / N, T=1.)
-    samples = dataset.unpreprocess(decode(z))
-
+    npy_files = sorted(
+        [f for f in os.listdir(config.input_path) if f.endswith(".npy")],
+        key=lambda x: int(x.split(".")[0])
+    )
+    total_files = len(npy_files)
+    batch_size = 50  # 可调整的批次大小
     os.makedirs(config.output_path, exist_ok=True)
-    for sample, prompt in zip(samples, prompts):
-        save_image(sample, os.path.join(config.output_path, f"{prompt}.png"))
+
+    total_batches = (total_files + batch_size - 1) // batch_size  # 计算总批次数
+
+    for batch_idx in tqdm(
+    range(0, total_files, batch_size),
+    total=total_batches,
+    desc="Processing batches",
+    unit="batch"
+    ):
+        end_idx = min(batch_idx + batch_size, total_files)
+        current_batch = npy_files[batch_idx:end_idx]
+
+        # 加载当前批次的contexts
+        contexts = []
+        for fname in current_batch:
+            data = np.load(os.path.join(config.input_path, fname), allow_pickle=True).item()
+            ctx = torch.from_numpy(data["context"]).unsqueeze(0)  # 添加批次维度
+            contexts.append(ctx)
+        contexts = torch.cat(contexts, dim=0).to(device)
+
+        z_init = torch.randn(contexts.size(0), *config.z_shape, device=device)
+        noise_schedule = NoiseScheduleVP(schedule='discrete', betas=torch.tensor(_betas, device=device).float())
+
+        def model_fn(x, t_continuous):
+            t = t_continuous * N
+            return cfg_nnet(x, t, context=contexts)
+
+        dpm_solver = DPM_Solver(model_fn, noise_schedule, predict_x0=True, thresholding=False)
+        z = dpm_solver.sample(z_init, steps=config.sample.sample_steps, eps=1. / N, T=1.)
+        samples = dataset.unpreprocess(decode(z))
+
+        for local_idx, sample in enumerate(samples):
+            global_idx = batch_idx + local_idx
+            save_image(sample, os.path.join(config.output_path, f"{global_idx}.png"))
+
+
 
 from absl import flags
 from absl import app
@@ -112,7 +146,7 @@ config_flags.DEFINE_config_file(
 flags.mark_flags_as_required(["config"])
 flags.DEFINE_string("nnet_path", None, "The nnet to evaluate.")
 flags.DEFINE_string("output_path", None, "The path to output images.")
-flags.DEFINE_string("input_path", None, "The path to input texts.")
+flags.DEFINE_string("input_path", None, "The path to input text , such as ../run_vis .")
 
 
 def main(argv):

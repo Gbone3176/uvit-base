@@ -1,0 +1,31 @@
+BioLinkBERT-base (michiyasunaga/BioLinkBERT-base)
+  Total Parameters: 108.23M
+  Trainable Parameters: 108.23M
+
+BioLinkBERT-large (michiyasunaga/BioLinkBERT-large)
+  Total Parameters: 333.48M
+  Trainable Parameters: 333.48M
+
+PubMedBERT (microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext)
+  Total Parameters: 109.48M
+  Trainable Parameters: 109.48M
+
+SapBERT (cambridgeltl/SapBERT-from-PubMedBERT-fulltext)
+  Total Parameters: 109.48M
+  Trainable Parameters: 109.48M
+
+RadBERT (StanfordAIMI/RadBERT)
+  Total Parameters: 108.31M
+  Trainable Parameters: 108.31M
+
+PubMedCLIP (flaviagiammarino/pubmed-clip-vit-base-patch32)
+  Total Parameters: 63.17M
+  Trainable Parameters: 63.17M
+
+BioMedCLIP (hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224)
+  Total Parameters: 109.71M
+  Trainable Parameters: 109.71M
+
+CLIP (openai/clip-vit-base-patch32)
+  Total Parameters: 63.17M
+  Trainable Parameters: 63.17M

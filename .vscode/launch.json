@@ -5,15 +5,37 @@
             "name": "Debug extract_CXR14_feature.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/scripts/ChestXray14-bert/extract_test_prompt_feature.py",
+            "program": "${workspaceFolder}/scripts/ChestXray14-pubmedclip/extract_test_prompt_feature.py",
             "console": "integratedTerminal",
             "env": {
-                "CUDA_VISIBLE_DEVICES": "2",
+                "CUDA_VISIBLE_DEVICES": "0",
                 "PYTHONPATH": "${workspaceFolder}"
             },
             "justMyCode": false,
             "args": [
-                "--version","StanfordAIMI/RadBERT"
+                // "--version","microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext"
+            ]
+        },
+        {
+            "name": "Debug Attention Visualization",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/sample_t2i_discrete_Vis.py",
+            "console": "integratedTerminal",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "3",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false,
+            "args": [
+                "--config=configs/chestXray14_uvit_small_t2i.py",
+                "--nnet_path=/storage/U-ViT/workdir/chestXray14_uvit_small_t2i/default/ckpts/55000.ckpt/nnet.pth",
+                "--output_path=/storage/U-ViT/tools/Visualization/Vision/outputs",
+                "--input_path=/storage/U-ViT/tools/Visualization/Vision/prompts.txt",
+                "--visualize_attention=True",
+                // "--visualize_steps=True",
+                "--attn_vis_blocks=in_5,mid,out_5",
+                "--attn_vis_types=self"
             ]
         }
     ]

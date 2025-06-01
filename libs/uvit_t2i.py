@@ -200,10 +200,10 @@ class UViT(nn.Module):
         B, L, D = x.shape
 
         time_token = self.time_embed(timestep_embedding(timesteps, self.embed_dim))  # [batch_size, embed_dim]
-        time_token = time_token.unsqueeze(dim=1)
-        context_token = self.context_embed(context)
-        x = torch.cat((time_token, context_token, x), dim=1)
-        x = x + self.pos_embed
+        time_token = time_token.unsqueeze(dim=1) # [batch_size, 1, embed_dim]
+        context_token = self.context_embed(context) # [batch_size, num_clip_token, embed_dim]
+        x = torch.cat((time_token, context_token, x), dim=1) # [batch_size, 1 + num_clip_token + num_patches, embed_dim]
+        x = x + self.pos_embed # [batch_size, 1 + num_clip_token + num_patches, embed_dim]
 
         skips = []
         for blk in self.in_blocks:

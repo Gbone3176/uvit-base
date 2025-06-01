@@ -15,6 +15,7 @@ def main():
     prompts = []
     VIS_NUM = 32
     dirlist = os.listdir("/storage/dataset/ChestXray14/reports/valid")
+    dirlist = sorted(dirlist, key=lambda x: int(x.split('_')[0]))
     for i, file in enumerate(dirlist):
         if i >= VIS_NUM:
             break

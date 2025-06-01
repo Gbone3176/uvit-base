@@ -52,8 +52,8 @@ def get_config():
         mlp_ratio=4,
         qkv_bias=False,
         mlp_time_embed=False,
-        clip_dim=768,
-        num_clip_token=256
+        clip_dim=512,
+        num_clip_token=77
     )
 
     config.dataset = d(

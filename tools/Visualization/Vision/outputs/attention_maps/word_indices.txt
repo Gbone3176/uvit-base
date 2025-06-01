@@ -1,0 +1,1 @@
+Prompt 0: '[CLS] there is severe edema in the left lung . [SEP]' -> Word 0: '[CLS]'

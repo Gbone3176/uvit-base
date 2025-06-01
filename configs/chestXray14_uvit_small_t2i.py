@@ -61,11 +61,11 @@ def get_config():
 
     config.sample = d(
         sample_steps=50,
-        n_samples=50000,
+        n_samples=1000,
         mini_batch_size=50,
         cfg=True,
         scale=1.,
-        path='/storage/U-ViT/sample/ChestXray-t2i'
+        path='/storage/U-ViT/sample/ChestXray-t2i-BioMedClip/eval'
     )
 
     return config

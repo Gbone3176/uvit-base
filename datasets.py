@@ -607,6 +607,7 @@ class ChestXray14FeatureDataset(Dataset):
         return self.num_data
 
     def __getitem__(self, index):
+        # print(f"load from {os.path.join(self.root, f'{index}.npy')}")
         z = np.load(os.path.join(self.root, f'{index}.npy'))
         k = random.randint(0, self.n_captions[index] - 1)
         c = np.load(os.path.join(self.root, f'{index}_{k}.npy'))  # 原始文本数据集
@@ -622,6 +623,7 @@ class ChestXray14_256Features(DatasetFactory):  # the moments calculated by Stab
         print('Prepare dataset for t2i task...')
         self.train = ChestXray14FeatureDataset(os.path.join(path, 'train'))
         self.test = ChestXray14FeatureDataset(os.path.join(path, 'val'))
+
         train_path = os.path.join(path, 'train')
         print(f"length of train set {train_path} is ", len(self.train))
 

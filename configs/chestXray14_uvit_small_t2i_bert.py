@@ -9,16 +9,20 @@ def d(**kwargs):
 def get_config():
     config = ml_collections.ConfigDict()
 
-    config.seed = 1206
+    config.seed = 42
     config.z_shape = (4, 32, 32)
 
     # michiyasunaga/BioLinkBERT-base
-    # michiyasunaga/BioLinkBERT-large 256 hidden_size 1024, 似乎不太可行
+    # michiyasunaga/BioLinkBERT-large 
     # microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
     # cambridgeltl/SapBERT-from-PubMedBERT-fulltext
     # StanfordAIMI/RadBERT
 
-    config.model_name_or_path = "michiyasunaga/BioLinkBERT-base"
+    ###########################################
+    # 使用的时候记得修改model_name_or_path！！！#
+    ###########################################
+
+    config.model_name_or_path = "cambridgeltl/SapBERT-from-PubMedBERT-fulltext"
     config.resolution = 256
 
 
@@ -28,7 +32,7 @@ def get_config():
     )
 
     config.train = d(
-        n_steps=100000,
+        n_steps=80000,
         batch_size=256,
         log_interval=500,
         eval_interval=5000,
@@ -44,7 +48,7 @@ def get_config():
 
     config.lr_scheduler = d(
         name='customized',
-        warmup_steps=10000
+        warmup_steps=0
     )
 
     config.nnet = d(
@@ -69,24 +73,25 @@ def get_config():
         cfg=True,
         p_uncond=0.1
     )
-    # train
-    # config.sample = d(
-    #     sample_steps=50,
-    #     n_samples=50000,
-    #     mini_batch_size=50,
-    #     cfg=True,
-    #     scale=1.,
-    #     path=f'/storage/U-ViT/sample/ChestXray-t2i-{config.resolution}_features-{config.model_name_or_path.split("/")[-1]}'
-    # )
 
-    # eval
+    # train
     config.sample = d(
         sample_steps=50,
-        n_samples=1000,
+        n_samples=10000,
         mini_batch_size=50,
         cfg=True,
         scale=1.,
-        path=f'/storage/U-ViT/sample/ChestXray-t2i-{config.resolution}_features-{config.model_name_or_path.split("/")[-1]}/eval',
+        path=f'/storage/U-ViT/sample/ChestXray-t2i-{config.resolution}_features-{config.model_name_or_path.split("/")[-1]}'
     )
+
+    # # eval
+    # config.sample = d(
+    #     sample_steps=50,
+    #     n_samples=1000,
+    #     mini_batch_size=50,
+    #     cfg=True,
+    #     scale=1.,
+    #     path=f'/storage/U-ViT/sample/ChestXray-t2i-{config.resolution}_features-{config.model_name_or_path.split("/")[-1]}/eval',
+    # )
 
     return config

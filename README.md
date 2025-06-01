@@ -110,6 +110,7 @@ the corresponding txt is stored at `/storage/U-ViT/scripts/Vis_caps`
 
 ```bash
 #Biomedclip
+CUDA_VISIBLE_DEVICES=3 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-BioMedClip/extract_test_prompt_feature.py
 
 # pubmedclip
 CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-pubmedclip/extract_CXR14_feature.py
@@ -126,11 +127,11 @@ CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-pubm
 # StanfordAIMI/RadBERT
 
 #bert-series
-CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_CXR14_feature.py --split train --version michiyasunaga/BioLinkBERT-large
+CUDA_VISIBLE_DEVICES=1 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_CXR14_feature.py --split train --version cambridgeltl/SapBERT-from-PubMedBERT-fulltext
 
-CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_empty_feature.py --version StanfordAIMI/RadBERT
+CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_empty_feature.py --version michiyasunaga/BioLinkBERT-base
 
-CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_test_prompt_feature.py --version StanfordAIMI/RadBERT
+CUDA_VISIBLE_DEVICES=1 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_test_prompt_feature.py --version cambridgeltl/SapBERT-from-PubMedBERT-fulltext
 ```
 
 #### Reference statistics for FID
@@ -196,8 +197,9 @@ CUDA_VISIBLE_DEVICES=2,3 accelerate launch --num_processes 2 --mixed_precision f
 CUDA_VISIBLE_DEVICES=2,3 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_query.py
 
 # ChestXray14 256x256 (U-ViT-S/2 @pubmedclip)
-CUDA_VISIBLE_DEVICES=2,3 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_pubmedclip.py
+CUDA_VISIBLE_DEVICES=0 accelerate launch --num_processes 1 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_pubmedclip.py
 
+# Biomedclip
 # michiyasunaga/BioLinkBERT-base 
 # michiyasunaga/BioLinkBERT-large (hidden_size 1024, 似乎不太可行)
 # microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
@@ -205,7 +207,7 @@ CUDA_VISIBLE_DEVICES=2,3 accelerate launch --num_processes 2 --mixed_precision f
 # StanfordAIMI/RadBERT
 
 # ChestXray14 256x256 (U-ViT-S/2 @bert-series)
-CUDA_VISIBLE_DEVICES=2,3 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_bert.py --config.model_name_or_path=michiyasunaga/BioLinkBERT-base
+CUDA_VISIBLE_DEVICES=2,3 accelerate launch --num_processes 2 --mixed_precision fp16  train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_bert.py  --config.model_name_or_path=microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
 
 # #RL版本没做
 # CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_RL.py
@@ -282,11 +284,71 @@ accelerate launch --multi_gpu --num_processes 4 --mixed_precision fp16 eval_t2i_
 # chestXray14 256x256 (U-ViT-H/2 Prototype)
 accelerate launch --num_processes 2 --mixed_precision fp16 eval_ldm_pro.py --config=configs/chestXray14_256_ldm_uvit_pro.py --nnet_path=/cpfs01/projects-HDD/cfff-906dc71fafda_HDD/gbw_21307130160/U-ViT/workdir/chestXray14_256_ldm_uvit_pro-seed42/default/ckpts/65000.ckpt/nnet.pth
 
-# ChestXray14  (U-ViT-S/2)
-CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 --main_process_port 29501 eval_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_bert.py --config.model_name_or_path=michiyasunaga/BioLinkBERT-base --nnet_path=/storage/U-ViT/workdir/chestXray14_uvit_small_t2i_bert/BioLinkBERT-base/ckpts/60000.ckpt/nnet.pth 
+# ChestXray14  (U-ViT-S/2) @biomedclip
+CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 --main_process_port 29501 eval_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i.py  --nnet_path=/storage/U-ViT/workdir/chestXray14_uvit_small_t2i/default/ckpts/55000.ckpt/nnet.pth
+
+# ChestXray14  (U-ViT-S/2) @pubmedclip
+CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 --main_process_port 29501 eval_t2i_discrete.py --config=chestXray14_uvit_small_t2i_pubmedclip.py --nnet_path=/storage/U-ViT/workdir/chestXray14_uvit_small_t2i/default/ckpts/55000.ckpt/nnet.pth
+
+# ChestXray14  (U-ViT-S/2) @bert-series
+CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 --main_process_port 29501 eval_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i.py --config.model_name_or_path=Biomedclip --nnet_path=/storage/U-ViT/workdir/chestXray14_uvit_small_t2i/default/ckpts/55000.ckpt/nnet.pth
+```
+## Evaliation (Compute Clip-Score)
+```bash
+# 采样1000张图像
+
+# biomedclip
+CUDA_VISIBLE_DEVICES=0,1 python sample_t2i_discrete.py \
+    --config=configs/chestXray14_uvit_small_t2i.py \
+    --nnet_path=/storage/U-ViT/workdir/chestXray14_uvit_small_t2i/default/ckpts/55000.ckpt/nnet.pth \
+    --output_path=/storage/U-ViT/assets/ClipScore/BiomedClip/imgs \
+    --input_path=/storage/U-ViT/assets/ClipScore/BiomedClip/run_vis
+
+# Biomedclip
+# michiyasunaga/BioLinkBERT-base
+# michiyasunaga/BioLinkBERT-large
+# microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext
+# cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+# StanfordAIMI/RadBERT
+
+#/storage/U-ViT/workdir/chestXray14_uvit_small_t2i/default/ckpts/55000.ckpt/nnet.pth
+#/storage/U-ViT/workdir/chestXray14_uvit_small_t2i_bert/BioLinkBERT-base/ckpts/70000.ckpt/nnet.pth
+#/storage/U-ViT/workdir/chestXray14_uvit_small_t2i_bert/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext/ckpts/75000.ckpt/nnet.pth
+#/storage/U-ViT/workdir/chestXray14_uvit_small_t2i_bert/SapBERT-from-PubMedBERT-fulltext/65000.ckpt/nnet.pth
+#/storage/U-ViT/workdir/RadBERT/nnet.pth
+
+#bert-series
+CUDA_VISIBLE_DEVICES=0 python sample_t2i_discrete.py \
+    --config=configs/chestXray14_uvit_small_t2i_bert.py \
+    --config.model_name_or_path=cambridgeltl/SapBERT-from-PubMedBERT-fulltext \
+    --nnet_path=/storage/U-ViT/workdir/chestXray14_uvit_small_t2i_bert/SapBERT-from-PubMedBERT-fulltext/65000.ckpt/nnet.pth \
+    --output_path=/storage/U-ViT/assets/ClipScore/SapBERT-from-PubMedBERT-fulltext/imgs \
+    --input_path=/storage/U-ViT/assets/ClipScore/SapBERT-from-PubMedBERT-fulltext/run_vis
+
+CUDA_VISIBLE_DEVICES=0 python sample_t2i_discrete.py \
+    --config=configs/chestXray14_uvit_small_t2i_clip.py \
+    --nnet_path=/storage/U-ViT/workdir/CLIP/nnet.pth \
+    --output_path=/storage/U-ViT/assets/ClipScore/clip-CS/imgs \
+    --input_path=/storage/U-ViT/assets/ClipScore/clip-CS/run_vis
+```
+
+```bash 
+# sample txt
+
 ```
 
 
+```bash
+conda activate bionlp
+
+cd /storage/U-ViT/tools/clip-score/src/clip_score
+
+CUDA_VISIBLE_DEVICES=1 python clip_score.py \
+/storage/U-ViT/assets/ClipScore/Vis-pics \
+/storage/U-ViT/assets/ClipScore/Xray-ORI \
+--real_flag=img --fake_flag=txt \
+--biomed
+```
 
 
 ## References
