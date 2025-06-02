@@ -34,6 +34,9 @@ def get_nnet(name, **kwargs):
     elif name == 'uvit_pn':
         from libs.uvit_pro import UViTpn
         return UViTpn(**kwargs)
+    elif name == 'uvit_t2i_label_pron':
+        from libs.uvit_t2i_label_pron import UViT
+        return UViT(**kwargs)
     else:
         raise NotImplementedError(name)
 

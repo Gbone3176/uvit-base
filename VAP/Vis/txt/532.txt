@@ -1,0 +1,1 @@
+In this chest X-ray, the clavicle-spine distance ratios are approximately 0.26, and the lung transparency gradients are approximately 0.87. The image shows anatomic survey findings, which are metric-verified normal observations. No artifacts were observed in the image.

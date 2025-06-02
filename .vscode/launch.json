@@ -20,7 +20,7 @@
             "name": "Debug Attention Visualization",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/sample_t2i_discrete_Vis.py",
+            "program": "${workspaceFolder}/xxx",
             "console": "integratedTerminal",
             "env": {
                 "CUDA_VISIBLE_DEVICES": "3",
@@ -36,6 +36,22 @@
                 // "--visualize_steps=True",
                 "--attn_vis_blocks=in_5,mid,out_5",
                 "--attn_vis_types=self"
+            ]
+        },
+        {
+            "name": "Debug add label",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/VAP/add_label.py",
+            "console": "integratedTerminal",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "3",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false,
+            "args": [
+                "--split=train", 
+                "--version=michiyasunaga/BioLinkBERT-base",
             ]
         }
     ]

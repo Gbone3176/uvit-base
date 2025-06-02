@@ -1,35 +1,7 @@
-## U-ViT<br> <sub><small>Official PyTorch implementation of [All are Worth Words: A ViT Backbone for Diffusion Models](https://arxiv.org/abs/2209.12152) (CVPR 2023)</small></sub>
-
-
-💡Projects with U-ViT: 
-* [UniDiffuser](https://github.com/thu-ml/unidiffuser), a multi-modal large-scale diffusion model based on a 1B U-ViT, is open-sourced
-* [DPT](https://arxiv.org/abs/2302.10586), [code](https://github.com/ML-GSAI/DPT), [demo](https://ml-gsai.github.io/DPT-demo) a conditional diffusion model trained with 1 label/class with SOTA SSL generation and classification results on ImageNet
-
-<img src="uvit.png" alt="drawing" width="400"/>
-
-Vision transformers (ViT) have shown promise in various vision tasks while the U-Net based on a convolutional neural network (CNN) remains dominant in diffusion models. 
-We design a simple and general ViT-based architecture (named U-ViT) for image generation with diffusion models. 
-U-ViT is characterized by treating all inputs including the time, condition and noisy image patches as tokens 
-and employing long skip connections between shallow and deep layers. 
-We evaluate U-ViT in unconditional and class-conditional image generation, 
-as well as text-to-image generation tasks, where U-ViT is comparable if not superior to a CNN-based U-Net of a similar size. 
-In particular, latent diffusion models with U-ViT achieve record-breaking FID scores of 2.29 in class-conditional image generation 
-on ImageNet 256x256, and 5.48 in text-to-image generation on MS-COCO, among methods without accessing 
-large external datasets during the training of generative models.
-
-Our results suggest that, for diffusion-based image modeling, the long skip connection is crucial while the down-sampling and up-sampling operators in CNN-based U-Net are not always necessary. We believe that U-ViT can provide insights for future research on backbones in diffusion models and benefit generative modeling on large scale cross-modality datasets.
-
---------------------
-
-
-
 This codebase implements the transformer-based backbone 📌*U-ViT*📌 for diffusion models, as introduced in the [paper](https://arxiv.org/abs/2209.12152).
 U-ViT treats all inputs as tokens and employs long skip connections. *The long skip connections grealy promote the performance and the convergence speed*.
 
-
-
 <img src="skip_im.png" alt="drawing" width="400"/>
-
 
 💡This codebase contains:
 * An implementation of [U-ViT](libs/uvit.py) with optimized attention computation
@@ -127,11 +99,11 @@ CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-pubm
 # StanfordAIMI/RadBERT
 
 #bert-series
-CUDA_VISIBLE_DEVICES=1 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_CXR14_feature.py --split train --version cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+CUDA_VISIBLE_DEVICES=3 PYTHONPATH=/storage/U-ViT python scripts/VAP/extract_feature.py --split train --version michiyasunaga/BioLinkBERT-base
 
-CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_empty_feature.py --version michiyasunaga/BioLinkBERT-base
+CUDA_VISIBLE_DEVICES=3 PYTHONPATH=/storage/U-ViT python scripts/VAP/extract_empty_feature.py --version michiyasunaga/BioLinkBERT-base
 
-CUDA_VISIBLE_DEVICES=1 PYTHONPATH=/storage/U-ViT python scripts/ChestXray14-bert/extract_test_prompt_feature.py --version cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+CUDA_VISIBLE_DEVICES=3 PYTHONPATH=/storage/U-ViT python scripts/VAP/extract_test_prompt_feature.py --version michiyasunaga/BioLinkBERT-base
 ```
 
 #### Reference statistics for FID
@@ -213,13 +185,18 @@ CUDA_VISIBLE_DEVICES=2,3 accelerate launch --num_processes 2 --mixed_precision f
 # CUDA_VISIBLE_DEVICES=0,1 accelerate launch --num_processes 2 --mixed_precision fp16 train_t2i_discrete.py --config=configs/chestXray14_uvit_small_t2i_RL.py
 
 
-
 # ChestXray14 256x256 (U-ViT-H/2 @Biomedclip) 标签生图
 CUDA_VISIBLE_DEVICES=0,6 accelerate launch --multi_gpu --num_processes 2 --mixed_precision fp16 train_ldm_discrete.py --config=configs/chestXray14_256_ldm_uvit.py 
 
 # ChestXray14 256x256 (U-ViT-H/2 @Biomedclip & Prototype)
 CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch --multi_gpu --num_processes 4 --mixed_precision fp16 train_ldm_pro.py --config=configs/chestXray14_256_ldm_uvit_pro.py
 
+
+# ChestXray14 256x256 (U-ViT-H/2 @Biomedclip & Prototype)
+CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch --multi_gpu --num_processes 4 --mixed_precision fp16 train_ldm_pro.py --config=configs/chestXray14_256_ldm_uvit_pro.py
+
+#VAP Xray14 256x256 (U-ViT-S/2 deep @BioLinkBERT & Prototype)
+CUDA_VISIBLE_DEVICES=2,3 accelerate launch --multi_gpu --num_processes 2 --mixed_precision fp16 train_t2i_discrete_VAP.py --config=configs/VAP_Xray14_small_t2i_deep.py
 ```
 
 ## Fetch the statistics of datasets
@@ -349,21 +326,3 @@ CUDA_VISIBLE_DEVICES=1 python clip_score.py \
 --real_flag=img --fake_flag=txt \
 --biomed
 ```
-
-
-## References
-If you find the code useful for your research, please consider citing
-```bib
-@inproceedings{bao2022all,
-  title={All are Worth Words: A ViT Backbone for Diffusion Models},
-  author={Bao, Fan and Nie, Shen and Xue, Kaiwen and Cao, Yue and Li, Chongxuan and Su, Hang and Zhu, Jun},
-  booktitle = {CVPR},
-  year={2023}
-}
-```
-
-This implementation is based on
-* [Extended Analytic-DPM](https://github.com/baofff/Extended-Analytic-DPM) (provide the FID reference statistics on CIFAR10 and CelebA 64x64)
-* [guided-diffusion](https://github.com/openai/guided-diffusion) (provide the FID reference statistics on ImageNet)
-* [pytorch-fid](https://github.com/mseitzer/pytorch-fid) (provide the official implementation of FID to PyTorch)
-* [dpm-solver](https://github.com/LuChengTHU/dpm-solver) (provide the sampler)

@@ -11,7 +11,7 @@ import os
 import glob
 import einops
 import torchvision.transforms.functional as F
-
+import re
 
 class UnlabeledDataset(Dataset):
     def __init__(self, dataset):
@@ -571,7 +571,7 @@ class ChestXray14Database(Dataset):
         label = labels.index(1)
         
         # 获取报告
-        report_path = os.path.join(self.root, 'reports/'+self.mode, key.replace('.png', '_0.txt'))
+        report_path = os.path.join(self.root, 'reports-llava/'+self.mode, key.replace('.png', '.txt'))
         with open(report_path, 'r') as f:
             report = f.read()
 
@@ -686,6 +686,111 @@ class ChestXray14_256_ldm_Features(DatasetFactory):  # the moments calculated by
     def sample_label(self, n_samples, device):
         return torch.randint(0, 15, (n_samples,), device=device)
 
+class CFGDatasetTL(Dataset):  # for classifier free guidance
+    ### 对于类别的empty_class来说，假设类别为0-6，则设置为7
+    ### 对于文本的empty_token来说，则替换为empty_token
+    def __init__(self, dataset, p_uncond, empty_token, empty_class):
+        self.dataset = dataset
+        self.p_uncond = p_uncond
+        self.empty_token = empty_token
+        self.empty_class = empty_class
+        self._targets = None
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, item):
+        x, y, l = self.dataset[item]
+        if random.random() < self.p_uncond:
+            y = self.empty_token
+            l = self.empty_class
+        return x, y, l
+        ### 第一阶段我们只用l去校正上采样
+        # return x, y
+
+    def _extract_targets(self):
+        targets = []
+        if self.empty_class==15:
+            print("load label from /storage/U-ViT/labels.npy")
+            targets = np.load("/storage/U-ViT/labels.npy")[:64352]
+        else:
+            # Iterate through dataset using indices
+            for idx in range(len(self.dataset)):
+                _, y, l = self.dataset[idx]
+                targets.append(l)
+        return np.array(targets)
+
+    @property
+    def targets(self):
+        if self._targets is None:
+            self._targets = self._extract_targets()
+        return self._targets
+
+class VAPFeatureDataset(Dataset):
+    # the image features are got through sample
+    def __init__(self, root):
+        self.root = root
+        self.num_data, self.n_captions = get_feature_dir_info(root)
+
+    def __len__(self):
+        return self.num_data
+
+    def __getitem__(self, index):
+        z = np.load(os.path.join(self.root, f'{index}.npy'))
+        con_dict = np.load(os.path.join(self.root, f'{index}_0.npy'), allow_pickle=True).item()
+        c, l = con_dict['caption'], con_dict['label']
+        return z, c, l
+
+class ChestXray14FeaturesTL(DatasetFactory):  # the moments calculated by Stable Diffusion image encoder & the contexts calculated by clip
+    def __init__(self, path, cfg=False, p_uncond=None):
+        super().__init__()
+        print('Prepare dataset...')
+        ### 获取latent image, text, label
+        self.train = VAPFeatureDataset(os.path.join(path, 'train'))
+        self.test = VAPFeatureDataset(os.path.join(path, 'val'))
+        print('Prepare dataset ok')
+
+        assert len(self.train) > 0, len(self.test) > 0
+        self.empty_context = None ##?
+        self.K = 15
+
+        ### 第一阶段可以选择不用label embedding, 证明根据类别上采样对于文生图的影响
+        if cfg:  
+            # classifier free guidance
+            assert p_uncond is not None
+            self.empty_context = np.load(os.path.join(path, 'empty_context.npy'))
+            print(f'prepare the dataset for classifier free guidance with p_uncond={p_uncond}')
+            self.train = CFGDatasetTL(self.train, p_uncond, self.empty_context, self.K)
+            
+            # 在循环之前添加文件过滤逻辑
+            run_vis_path = os.path.join(path, 'run_vis')
+            valid_files = []
+
+            # 过滤文件：只保留纯数字.npy格式的文件
+            for filename in os.listdir(run_vis_path):
+                if re.match(r'^\d+_0\.npy$', filename):  # 匹配纯数字.npy格式
+                    valid_files.append(filename)
+
+            # 按数字排序
+            valid_files = sorted(valid_files, key=lambda x: int(x.split('.')[0]))
+
+            self.contexts, self.labels = [], []
+            for f in valid_files:
+                data = np.load(os.path.join(run_vis_path, f), allow_pickle=True).item()
+                self.contexts.append(data['caption'])
+                self.labels.append(data['label'])
+            self.contexts = np.array(self.contexts)
+            self.labels = np.array(self.labels)
+
+    @property
+    def data_shape(self):
+        return 4, 32, 32
+
+    @property
+    def fid_stat(self):
+        return f'assets/fid_stats/fid_stats_ChestXray14.npz'
+
+
 def get_dataset(name, **kwargs):
     if name == 'cifar10':
         return CIFAR10(**kwargs)
@@ -703,5 +808,7 @@ def get_dataset(name, **kwargs):
         return ChestXray14_256Features(**kwargs)
     elif name == 'ChestXray14_256_ldm_features':
         return ChestXray14_256_ldm_Features(**kwargs)
+    elif name == 'xray14-img-text-label-features':
+        return ChestXray14FeaturesTL(**kwargs)
     else:
         raise NotImplementedError(name)
