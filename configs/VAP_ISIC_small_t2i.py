@@ -54,7 +54,6 @@ def get_config():
         clip_dim=768,
         num_clip_token=256,
         num_classes=8 # num_classes = num_classes + 1
-        
     )
 
     config.dataset = d(

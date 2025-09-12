@@ -1,4 +1,4 @@
-__pycache__/  
+**/__pycache__/
 .ipynb_checkpoints/  
 assets/  
 ConpareMethod/  
@@ -7,3 +7,5 @@ sample/
 weights/  
 workdir/
 scripts/Vis_caps/
+.vscode/
+.trae/

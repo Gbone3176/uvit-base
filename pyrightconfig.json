@@ -1,0 +1,21 @@
+{
+
+  "include": [
+    // "configs",
+    // "libs",
+    // "scripts",
+    // "tools"
+  ],
+
+  "exclude": [
+    "sample",
+    "assets",
+    "workdir",
+    "__pycache__",
+    ".trae",
+    ".vscode",
+    "weights"
+  ],
+
+  "typeCheckingMode": "off"
+}

@@ -20,9 +20,8 @@ import libs.autoencoder
 import numpy as np
 import torch.nn.functional as F
 from collections import Counter
-from torch.utils.tensorboard import SummaryWriter
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '6'
+os.environ["CUDA_VISIBLE_DEVICES"] = '4, 5, 6, 7'
 
 def stable_diffusion_beta_schedule(linear_start=0.00085, linear_end=0.0120, n_timestep=1000):
     _betas = (
@@ -92,9 +91,7 @@ class Schedule(object):  # discrete time
 def LSimple(x0, nnet, schedule, **kwargs):
     n, eps, xn = schedule.sample(x0)  # n in {1, ..., 1000}
     eps_pred, recon_loss = nnet(xn, n, **kwargs)
-    diffusion_loss = mos(eps - eps_pred)
-    total_loss = diffusion_loss + recon_loss
-    return total_loss, diffusion_loss, recon_loss
+    return mos(eps - eps_pred) + recon_loss
 
 
 def train(config):
@@ -121,18 +118,13 @@ def train(config):
     accelerator.wait_for_everyone()
     # logging.info(True)
     if accelerator.is_main_process:
-        # wandb.init(dir=os.path.abspath(config.workdir), project=f'uvit_{config.dataset.name}', config=config.to_dict(),
-        #            name=config.hparams, job_type='train', mode='offline')
-        # Initialize TensorBoard writer
-        tensorboard_dir = os.path.join(config.workdir, 'tensorboard')
-        os.makedirs(tensorboard_dir, exist_ok=True)
-        tb_writer = SummaryWriter(tensorboard_dir)
+        wandb.init(dir=os.path.abspath(config.workdir), project=f'uvit_{config.dataset.name}', config=config.to_dict(),
+                   name=config.hparams, job_type='train', mode='offline')
         utils.set_logger(log_level='info', fname=os.path.join(config.workdir, 'output.log'))
         logging.info(config)
     else:
         utils.set_logger(log_level='error')
         builtins.print = lambda *args: None
-        tb_writer = None
     logging.info(f'Run on {accelerator.num_processes} devices')
 
     dataset = get_dataset(**config.dataset)
@@ -252,26 +244,13 @@ def train(config):
         _metrics = dict()
         optimizer.zero_grad()
         _z = autoencoder.sample(_batch[0]) if 'feature' in config.dataset.name else encode(_batch[0])
-        total_loss, diffusion_loss, recon_loss = LSimple(_z, nnet, _schedule, context=_batch[1], y=_batch[2], x_clean=_z)  # currently only support the extracted feature version
-        
-        # Gather losses for logging
-        _metrics['loss'] = accelerator.gather(total_loss.detach()).mean()
-        _metrics['diffusion_loss'] = accelerator.gather(diffusion_loss.detach()).mean()
-        _metrics['recon_loss'] = accelerator.gather(recon_loss.detach()).mean()
-        
-        accelerator.backward(total_loss.mean())
+        loss = LSimple(_z, nnet, _schedule, context=_batch[1], y=_batch[2], x_clean=_z)  # currently only support the extracted feature version
+        _metrics['loss'] = accelerator.gather(loss.detach()).mean()
+        accelerator.backward(loss.mean())
         optimizer.step()
         lr_scheduler.step()
         train_state.ema_update(config.get('ema_rate', 0.9999))
         train_state.step += 1
-        
-        # Log to TensorBoard
-        if accelerator.is_main_process and tb_writer is not None:
-            tb_writer.add_scalar('Train/Total_Loss', _metrics['loss'].item(), train_state.step)
-            tb_writer.add_scalar('Train/Diffusion_Loss', _metrics['diffusion_loss'].item(), train_state.step)
-            tb_writer.add_scalar('Train/Reconstruction_Loss', _metrics['recon_loss'].item(), train_state.step)
-            tb_writer.add_scalar('Train/Learning_Rate', train_state.optimizer.param_groups[0]['lr'], train_state.step)
-        
         return dict(lr=train_state.optimizer.param_groups[0]['lr'], **_metrics)
 
     def dpm_solver_sample(_n_samples, _sample_steps, **kwargs):
@@ -307,12 +286,7 @@ def train(config):
                 logging.info(f'step={train_state.step} fid{n_samples}={_fid}')
                 with open(os.path.join(config.workdir, 'eval.log'), 'a') as f:
                     print(f'step={train_state.step} fid{n_samples}={_fid}', file=f)
-                # wandb.log({f'fid{n_samples}': _fid}, step=train_state.step)
-                
-                # Log FID to TensorBoard
-                if tb_writer is not None:
-                    tb_writer.add_scalar(f'Eval/FID_{n_samples}', _fid, train_state.step)
-                    
+                wandb.log({f'fid{n_samples}': _fid}, step=train_state.step)
             _fid = torch.tensor(_fid, device=device)
             _fid = accelerator.reduce(_fid, reduction='sum')
 
@@ -330,7 +304,7 @@ def train(config):
         if accelerator.is_main_process and train_state.step % config.train.log_interval == 0:
             logging.info(utils.dct2str(dict(step=train_state.step, **metrics)))
             logging.info(config.workdir)
-            # wandb.log(metrics, step=train_state.step)
+            wandb.log(metrics, step=train_state.step)
 
         if accelerator.is_main_process and train_state.step % config.train.eval_interval == 0:
             torch.cuda.empty_cache()
@@ -340,7 +314,7 @@ def train(config):
             samples = dpm_solver_sample(_n_samples=2 * 5, _sample_steps=50, context=contexts, label=labels)
             samples = make_grid(dataset.unpreprocess(samples), 5)
             save_image(samples, os.path.join(config.sample_dir, f'{train_state.step}.png'))
-            # wandb.log({'samples': wandb.Image(samples)}, step=train_state.step)
+            wandb.log({'samples': wandb.Image(samples)}, step=train_state.step)
             torch.cuda.empty_cache()
         accelerator.wait_for_everyone()
 
@@ -363,10 +337,6 @@ def train(config):
     del metrics
     accelerator.wait_for_everyone()
     eval_step(n_samples=config.sample.n_samples, sample_steps=config.sample.sample_steps)
-    
-    # Close TensorBoard writer
-    if accelerator.is_main_process and tb_writer is not None:
-        tb_writer.close()
 
 
 

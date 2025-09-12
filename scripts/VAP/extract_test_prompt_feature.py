@@ -49,8 +49,8 @@ def main(resolution=256):
             x, captions = data
 
             # 保存用于测试的图片和文本报告
-            IMG_SAVE_DIR = "/storage/U-ViT/assets/datasets/VAP/ChestXray14-256_features-BioLinkBERT-base/Vis/img"
-            TXT_SAVE_DIR = "/storage/U-ViT/assets/datasets/VAP/ChestXray14-256_features-BioLinkBERT-base/Vis/txt"
+            IMG_SAVE_DIR = "/storage/U-ViT/assets/datasets/VAP/ISIC2019-256_features-BioLinkBERT-base/Vis/img"
+            TXT_SAVE_DIR = "/storage/U-ViT/assets/datasets/VAP/ISIC2019-256_features-BioLinkBERT-base/Vis/txt"
 
             # 创建文件夹（如果不存在）
             os.makedirs(IMG_SAVE_DIR, exist_ok=True)

@@ -37,6 +37,16 @@ def get_nnet(name, **kwargs):
     elif name == 'uvit_t2i_label_pron':
         from libs.uvit_t2i_label_pron import UViT
         return UViT(**kwargs)
+    elif name == 'unet_t2i_label_pron':
+        from libs.unet_t2i_label_pron import UNetModel
+        return UNetModel(**kwargs)
+    elif name.startswith('DiT'):
+        # Support for specific DiT model configurations
+        from libs.dit_t2i_label_pron import DiT_models
+        if name in DiT_models:
+            return DiT_models[name](**kwargs)
+        else:
+            raise NotImplementedError(f"DiT model '{name}' not found. Available models: {list(DiT_models.keys())}")
     else:
         raise NotImplementedError(name)
 

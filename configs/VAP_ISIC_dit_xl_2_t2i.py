@@ -19,8 +19,8 @@ def get_config():
     )
 
     config.train = d(
-        n_steps=100000,
-        batch_size=32,
+        n_steps=500000,
+        batch_size=256,
         log_interval=10,
         eval_interval=5000,
         save_interval=50000,
@@ -39,24 +39,20 @@ def get_config():
     )
 
     config.nnet = d(
-        name='uvit_t2i_label_pron',
+        name='DiT-XL/2',
         img_size=32,
         in_chans=4,
-        patch_size=2,
-        embed_dim=512,
-        depth=16,
-        num_heads=8,
         mlp_ratio=4,
         qkv_bias=False,
         mlp_time_embed=False,
         clip_dim=768,
         num_clip_token=256,
-        num_classes=16,
+        num_classes=8,
     )
 
     config.dataset = d(
-        name='xray14-img-text-label-features',
-        path='/storage/U-ViT/assets/datasets/VAP/ChestXray14-256_features-BioLinkBERT-base',
+        name='isic256_featurestextl',
+        path='ScientificPrograms/Conditional_Diffusion/U-VIT-G/assets/datasets/ISIC256_F_text_pro',
         cfg=True,
         p_uncond=0.1
     )
@@ -67,12 +63,12 @@ def get_config():
         mini_batch_size=50,
         cfg=True,
         scale=1.0, 
-        path='/storage/U-ViT/sample/exp_DenoiseBlock/ChestXray-t2i-{config.resolution}_features-{config.model_name_or_path.split("/")[-1]}'
+        path=''
     )
+
     config.pretrain = d(
         nnet_path = '/storage/U-ViT/assets/stable-diffusion/mscoco_uvit_small_deep.pth',
         label_emb_weight = '/storage/U-ViT/assets/stable-diffusion/imagenet256_uvit_large.pth'
     )
-
-
+    
     return config
