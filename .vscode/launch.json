@@ -55,7 +55,7 @@
             ]
         },
         {
-            "name": "Train VAP T2I Discrete",
+            "name": "Train VAP T2I Discrete with U-ViT block",
             "type": "debugpy",
             "request": "launch",
             "module": "accelerate.commands.launch",
@@ -69,6 +69,23 @@
                 "--mixed_precision", "fp16",
                 "train_t2i_discrete_VAP.py",
                 "--config=configs/VAP_Xray14_small_t2i_deep.py"
+            ]
+        },
+        {
+            "name": "Train VAP T2I Discrete with UNet block",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "accelerate.commands.launch",
+            "console": "integratedTerminal",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "3",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false,
+            "args": [
+                "--mixed_precision", "fp16",
+                "train_t2i_discrete_VAP.py",
+                "--config=configs/VAP_Xray14_unet_t2i.py"
             ]
         }
     ]

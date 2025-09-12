@@ -170,15 +170,15 @@ def train(config):
     lr_scheduler = train_state.lr_scheduler
 
     # 这里加载nnet的主要预训练权重    
-    weight = torch.load(config.pretrain.nnet_path, map_location='cpu')
-    pos_embed = weight['pos_embed']
-    pos_start = pos_embed[:, 0, :]
-    pos_middle = pos_embed[:, 1:78, :]
-    pos_end = pos_embed[:, 78:, :]
-    pos_middle = F.interpolate(pos_middle.permute(2, 0, 1), (257), mode='linear').permute(1, 2, 0)
-    pos_embed = torch.cat((pos_start.unsqueeze(0), pos_middle, pos_end), dim=1)
-    weight['pos_embed'] = pos_embed
-    accelerator.unwrap_model(nnet).load_state_dict(weight, strict=False)
+    # weight = torch.load(config.pretrain.nnet_path, map_location='cpu')
+    # pos_embed = weight['pos_embed']
+    # pos_start = pos_embed[:, 0, :]
+    # pos_middle = pos_embed[:, 1:78, :]
+    # pos_end = pos_embed[:, 78:, :]
+    # pos_middle = F.interpolate(pos_middle.permute(2, 0, 1), (257), mode='linear').permute(1, 2, 0)
+    # pos_embed = torch.cat((pos_start.unsqueeze(0), pos_middle, pos_end), dim=1)
+    # weight['pos_embed'] = pos_embed
+    # accelerator.unwrap_model(nnet).load_state_dict(weight, strict=False)
 
     # # 加载包含 label_emb 的第二个权重文件
     # label_weight_path = config.pretrain.label_emb_weight  
@@ -338,8 +338,12 @@ def train(config):
             contexts = torch.tensor(dataset.contexts, device=device)[: 2 * 5]
             labels = torch.tensor(dataset.labels, device=device)[: 2 * 5]
             samples = dpm_solver_sample(_n_samples=2 * 5, _sample_steps=50, context=contexts, label=labels)
-            samples = make_grid(dataset.unpreprocess(samples), 5)
-            save_image(samples, os.path.join(config.sample_dir, f'{train_state.step}.png'))
+            samples_grid = make_grid(dataset.unpreprocess(samples), 5)
+            # 保存图像到文件系统
+            save_image(samples_grid, os.path.join(config.sample_dir, f'{train_state.step}.png'))
+            # 将图像添加到TensorBoard
+            if accelerator.is_main_process and tb_writer is not None:
+                tb_writer.add_image('Generated_Samples', samples_grid, train_state.step)
             # wandb.log({'samples': wandb.Image(samples)}, step=train_state.step)
             torch.cuda.empty_cache()
         accelerator.wait_for_everyone()

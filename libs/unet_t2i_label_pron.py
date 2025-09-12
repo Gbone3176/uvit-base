@@ -430,17 +430,25 @@ class UNetModel(nn.Module):
         )
 
         # Context embedding for text conditioning
-        self.context_embed = nn.Linear(clip_dim, model_channels)
+        self.context_embed = nn.Linear(clip_dim, time_embed_dim)
         
         # Label embedding
         if self.num_classes is not None and self.num_classes > 0:
-            self.label_emb = nn.Embedding(self.num_classes, model_channels)
+            self.label_emb = nn.Embedding(self.num_classes, time_embed_dim)
             # Prototype for Q-former like functionality
             self.prototype = nn.Embedding(self.num_classes, (image_size // 8) ** 2 * model_channels)
+        
+        # Complete the label embedding block
+        if self.num_classes is not None and self.num_classes > 0:
             self.q = nn.Linear(model_channels, model_channels)
             self.k = nn.Linear(model_channels, model_channels)
             self.v = nn.Linear(model_channels, model_channels)
             self.cross_attn = CrossAttention(model_channels, num_heads=8)
+        
+        # Projection layer to ensure consistent embedding dimension
+        # Calculate max possible embedding dimension (time + context + label)
+        max_emb_dim = time_embed_dim * 3  # time + context + label (worst case)
+        self.emb_projection = nn.Linear(max_emb_dim, time_embed_dim)
 
         if isinstance(attention_resolutions, str):
             attention_resolutions = [int(x) for x in attention_resolutions.split(",")]
@@ -623,15 +631,31 @@ class UNetModel(nn.Module):
         t_emb = timestep_embedding(timesteps, self.model_channels)
         emb = self.time_embed(t_emb)
         
+        # Collect all embeddings for concatenation
+        embeddings = [emb]
+        
         # Add context conditioning
         if context is not None:
             context_emb = self.context_embed(context).mean(dim=1)  # Pool over sequence dimension
-            emb = emb + context_emb
+            embeddings.append(context_emb)
         
         # Add label conditioning
         if y is not None and hasattr(self, 'label_emb'):
             label_emb = self.label_emb(y)
-            emb = emb + label_emb
+            embeddings.append(label_emb)
+        
+        # Concatenate all embeddings
+        if len(embeddings) > 1:
+            emb_concat = torch.cat(embeddings, dim=-1)
+            # Pad to max dimension if needed
+            if emb_concat.size(-1) < self.emb_projection.in_features:
+                padding = torch.zeros(emb_concat.size(0), self.emb_projection.in_features - emb_concat.size(-1), 
+                                    device=emb_concat.device, dtype=emb_concat.dtype)
+                emb_concat = torch.cat([emb_concat, padding], dim=-1)
+            # Project to consistent dimension
+            emb = self.emb_projection(emb_concat)
+        else:
+            emb = embeddings[0]
 
         h = x.type(self.dtype)
         for module in self.input_blocks:
