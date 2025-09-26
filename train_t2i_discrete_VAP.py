@@ -7,6 +7,7 @@ import utils
 import einops
 from torch.utils._pytree import tree_map
 import accelerate
+from accelerate.utils import DistributedDataParallelKwargs
 from torch.utils.data import DataLoader, WeightedRandomSampler
 from tqdm.auto import tqdm
 from dpm_solver_pp import NoiseScheduleVP, DPM_Solver
@@ -22,7 +23,7 @@ import torch.nn.functional as F
 from collections import Counter
 from torch.utils.tensorboard import SummaryWriter
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '6'
+os.environ["CUDA_VISIBLE_DEVICES"] = '5,6'
 
 def stable_diffusion_beta_schedule(linear_start=0.00085, linear_end=0.0120, n_timestep=1000):
     _betas = (
@@ -103,7 +104,9 @@ def train(config):
         torch.backends.cudnn.deterministic = False
 
     mp.set_start_method('spawn')
-    accelerator = accelerate.Accelerator()
+    # 配置DistributedDataParallel参数以处理未使用的参数
+    ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
+    accelerator = accelerate.Accelerator(kwargs_handlers=[ddp_kwargs])
     device = accelerator.device
     accelerate.utils.set_seed(config.seed, device_specific=True)
     logging.info(f'Process {accelerator.process_index} using device: {device}')

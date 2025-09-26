@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import math
 import numpy as np
 import torch.distributed as dist
+from utils import compute_cam_once_from_callable,_should_capture, _append_cam_slot
 
 
 def interpolate_fn(x: torch.Tensor, xp: torch.Tensor, yp: torch.Tensor) -> torch.Tensor:
@@ -305,6 +306,7 @@ class DPM_Solver:
         self.predict_x0 = predict_x0
         self.thresholding = thresholding
         self.max_val = max_val
+
 
     def model_fn(self, x, t):
         if self.predict_x0:
@@ -949,4 +951,117 @@ class DPM_Solver:
                     x = self.dpm_solver_update(x, vec_s, vec_t, order, solver_type=solver_type)
         if denoise:
             x = self.denoise_fn(x, torch.ones((x.shape[0],)).to(device) * t_0)
+        return x
+
+
+    def cam_sample(self, x, steps=10, eps=1e-4, T=None, order=3, skip_type='time_uniform',
+           denoise=False, method='fast', solver_type='dpm_solver', atol=0.0078,
+           rtol=0.05,
+           # ===== CAM (optional, multi-steps) =====
+           cam_enable=False,
+           cam_forward=None,                # callable(x_t, t_vec)->pred（封装CFG）
+           cam_num_clip_token=None,
+           cam_patch_size=2,
+           cam_hooks=None,                  # {'activations':..., 'gradients':...}
+           cam_steps=None,                  # e.g. [5,10,20]；None 表示不用该条件
+           cam_stride=None,                 # e.g. 1=每步都采；5=每5步采
+           cam_limit=None,                  # 最多采集多少帧，None 不限
+           ):
+        """
+        与原版一致，增加多步 CAM 采集能力。
+        """
+        t_0 = eps
+        t_T = self.noise_schedule.T if T is None else T
+        device = x.device
+
+        # 采样步计数 & 清空历史帧
+        step_counter = 0
+        self.cams = []  # list of dict: {'step','cam_low','latent','t'}
+
+        def _maybe_capture(x_now, t_vec_now):
+            """在当前外部步完成后，按策略决定是否做一次 CAM。"""
+            if (not cam_enable) or (cam_forward is None) or (cam_hooks is None):
+                return
+            if not _should_capture(step_counter,
+                                cam_steps=cam_steps,
+                                cam_stride=cam_stride,
+                                cam_limit=cam_limit,
+                                already_captured=len(self.cams)):
+                return
+            # 临时打开梯度
+            with torch.enable_grad():
+                x_req = x_now.detach().requires_grad_(True)
+                cam_low = compute_cam_once_from_callable(
+                    cam_forward, x_req, t_vec_now,
+                    cam_num_clip_token, cam_patch_size,
+                    cam_hooks['activations'], cam_hooks['gradients']
+                )
+            _append_cam_slot(self, step_counter, cam_low, x_req, t_vec_now)
+
+        if method == 'adaptive':
+            with torch.no_grad():
+                x = self.dpm_solver_adaptive(x, order=order, t_T=t_T, t_0=t_0, atol=atol, rtol=rtol, solver_type=solver_type)
+
+        elif method == 'multistep':
+            assert steps >= order
+            timesteps = self.get_time_steps(skip_type=skip_type, t_T=t_T, t_0=t_0, N=steps, device=device)
+            assert timesteps.shape[0] - 1 == steps
+            with torch.no_grad():
+                vec_t = timesteps[0].expand((x.shape[0]))
+                noise_prev_list = [self.model_fn(x, vec_t)]
+                t_prev_list = [vec_t]
+                for init_order in range(1, order):
+                    vec_t = timesteps[init_order].expand(x.shape[0])
+                    x = self.dpm_multistep_update(x, noise_prev_list, t_prev_list, vec_t, init_order, solver_type=solver_type)
+                    step_counter += 1
+                    _maybe_capture(x, vec_t)
+                    noise_prev_list.append(self.model_fn(x, vec_t))
+                    t_prev_list.append(vec_t)
+
+                for step in range(order, steps + 1):
+                    vec_t = timesteps[step].expand(x.shape[0])
+                    x = self.dpm_multistep_update(x, noise_prev_list, t_prev_list, vec_t, order, solver_type=solver_type)
+                    step_counter += 1
+                    _maybe_capture(x, vec_t)
+
+                    # 维护 multistep 的缓存
+                    for i in range(order - 1):
+                        t_prev_list[i] = t_prev_list[i + 1]
+                        noise_prev_list[i] = noise_prev_list[i + 1]
+                    t_prev_list[-1] = vec_t
+                    if step < steps:
+                        noise_prev_list[-1] = self.model_fn(x, vec_t)
+
+        elif method == 'fast':
+            orders, _ = self.get_time_steps_for_dpm_solver_fast(skip_type=skip_type, t_T=t_T, t_0=t_0,
+                                                                steps=steps, order=order, device=device)
+            timesteps = self.get_time_steps(skip_type=skip_type, t_T=t_T, t_0=t_0, N=steps, device=device)
+            with torch.no_grad():
+                i = 0
+                for ord_k in orders:
+                    vec_s = torch.ones((x.shape[0],), device=device) * timesteps[i]
+                    vec_t = torch.ones((x.shape[0],), device=device) * timesteps[i + ord_k]
+                    h  = self.noise_schedule.marginal_lambda(timesteps[i + ord_k]) - self.noise_schedule.marginal_lambda(timesteps[i])
+                    r1 = None if ord_k <= 1 else (self.noise_schedule.marginal_lambda(timesteps[i + 1]) - self.noise_schedule.marginal_lambda(timesteps[i])) / h
+                    r2 = None if ord_k <= 2 else (self.noise_schedule.marginal_lambda(timesteps[i + 2]) - self.noise_schedule.marginal_lambda(timesteps[i])) / h
+                    x = self.dpm_solver_update(x, vec_s, vec_t, ord_k, solver_type=solver_type, r1=r1, r2=r2)
+                    i += ord_k
+                    step_counter += 1
+                    _maybe_capture(x, vec_t)
+
+        elif method == 'singlestep':
+            N_steps = steps // order
+            orders = [order] * N_steps
+            timesteps = self.get_time_steps(skip_type=skip_type, t_T=t_T, t_0=t_0, N=N_steps, device=device)
+            assert len(timesteps) - 1 == N_steps
+            with torch.no_grad():
+                for i, ord_k in enumerate(orders):
+                    vec_s = torch.ones((x.shape[0],), device=device) * timesteps[i]
+                    vec_t = torch.ones((x.shape[0],), device=device) * timesteps[i + 1]
+                    x = self.dpm_solver_update(x, vec_s, vec_t, ord_k, solver_type=solver_type)
+                    step_counter += 1
+                    _maybe_capture(x, vec_t)
+
+        if denoise:
+            x = self.denoise_fn(x, torch.ones((x.shape[0],), device=device) * t_0)
         return x

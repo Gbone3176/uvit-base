@@ -365,7 +365,7 @@ class UNetModel(nn.Module):
         dims=2,
         num_classes=None,
         use_checkpoint=False,
-        use_fp16=False,
+        use_fp16=True,
         num_heads=-1,
         num_head_channels=-1,
         num_heads_upsample=-1,
@@ -435,15 +435,6 @@ class UNetModel(nn.Module):
         # Label embedding
         if self.num_classes is not None and self.num_classes > 0:
             self.label_emb = nn.Embedding(self.num_classes, time_embed_dim)
-            # Prototype for Q-former like functionality
-            self.prototype = nn.Embedding(self.num_classes, (image_size // 8) ** 2 * model_channels)
-        
-        # Complete the label embedding block
-        if self.num_classes is not None and self.num_classes > 0:
-            self.q = nn.Linear(model_channels, model_channels)
-            self.k = nn.Linear(model_channels, model_channels)
-            self.v = nn.Linear(model_channels, model_channels)
-            self.cross_attn = CrossAttention(model_channels, num_heads=8)
         
         # Projection layer to ensure consistent embedding dimension
         # Calculate max possible embedding dimension (time + context + label)
@@ -559,6 +550,14 @@ class UNetModel(nn.Module):
         )
         self._feature_size += ch
 
+        # Initialize prototype and related layers after ch is defined
+        self.prototype = nn.Embedding(self.num_classes, (image_size // 8) ** 2 * ch)
+        self.middle_channels = ch
+        self.q = nn.Linear(ch, ch)
+        self.k = nn.Linear(ch, ch)
+        self.v = nn.Linear(ch, ch)
+        self.cross_attn = CrossAttention(ch, num_heads=8)
+
         self.output_blocks = nn.ModuleList([])
         for level, mult in list(enumerate(channel_mult))[::-1]:
             for i in range(num_res_blocks + 1):
@@ -659,9 +658,34 @@ class UNetModel(nn.Module):
 
         h = x.type(self.dtype)
         for module in self.input_blocks:
-            h = module(h, emb)
+            # Check if module is a Sequential containing layers that need different arguments
+            if isinstance(module, nn.Sequential):
+                for layer in module:
+                    if isinstance(layer, (nn.Conv2d, nn.ConvTranspose2d)):
+                        h = layer(h)
+                    elif isinstance(layer, AttentionBlock):
+                        h = layer(h)
+                    elif hasattr(layer, 'forward') and 'emb' in layer.forward.__code__.co_varnames:
+                        h = layer(h, emb)
+                    else:
+                        h = layer(h)
+            else:
+                # For non-Sequential modules, check parameter requirements
+                if hasattr(module, 'forward') and 'emb' in module.forward.__code__.co_varnames:
+                    h = module(h, emb)
+                else:
+                    h = module(h)
             hs.append(h)
-        h = self.middle_block(h, emb)
+        # Apply middle block with proper parameter handling
+        for layer in self.middle_block:
+            if isinstance(layer, (nn.Conv2d, nn.ConvTranspose2d)):
+                h = layer(h)
+            elif isinstance(layer, AttentionBlock):
+                h = layer(h)
+            elif hasattr(layer, 'forward') and 'emb' in layer.forward.__code__.co_varnames:
+                h = layer(h, emb)
+            else:
+                h = layer(h)
         
         # Apply prototype-based cross attention if available
         recon_loss = None
@@ -692,7 +716,23 @@ class UNetModel(nn.Module):
         
         for module in self.output_blocks:
             h = torch.cat([h, hs.pop()], dim=1)
-            h = module(h, emb)
+            # Check if module is a Sequential containing layers that need different arguments
+            if isinstance(module, nn.Sequential):
+                for layer in module:
+                    if isinstance(layer, (nn.Conv2d, nn.ConvTranspose2d)):
+                        h = layer(h)
+                    elif isinstance(layer, AttentionBlock):
+                        h = layer(h)
+                    elif hasattr(layer, 'forward') and 'emb' in layer.forward.__code__.co_varnames:
+                        h = layer(h, emb)
+                    else:
+                        h = layer(h)
+            else:
+                # For non-Sequential modules, check parameter requirements
+                if hasattr(module, 'forward') and 'emb' in module.forward.__code__.co_varnames:
+                    h = module(h, emb)
+                else:
+                    h = module(h)
         h = h.type(x.dtype)
         if self.predict_codebook_ids:
             return self.id_predictor(h)

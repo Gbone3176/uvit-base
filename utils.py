@@ -228,3 +228,107 @@ def grad_norm(model):
         total_norm += param_norm.item() ** 2
     total_norm = total_norm ** (1. / 2)
     return total_norm
+
+def infer_image_tokens(x, patch_size=2):
+    """
+    x: 输入的latent embedding, 提取N_img 和w和h方向的 patch 数量
+    """
+    H, W = x.shape[-2], x.shape[-1]
+    H_p, W_p = H // patch_size, W // patch_size
+    N_img = H_p * W_p
+    return N_img, H_p, W_p
+
+def compute_cam_once_from_callable(cam_forward,               # callable: (x_t, t_vec) -> pred tensor
+                                   x_t, t_vec,                # 当前步 latent & 时间索引
+                                   num_clip_token, patch_size,
+                                   activations, gradients):   # 全局 hook 容器
+    """
+    在 (x_t, t_vec) 上执行一次前向与反向，触发 hooks，产出“图像 tokens”的低分辨率 CAM。
+    返回 cam_low: [B,1,H_p,W_p]
+    """
+    # 允许梯度
+    with torch.enable_grad():
+        x_t = x_t.detach().requires_grad_(True)
+        # 1) 前向（由外部把 CFG 等细节封装在 cam_forward 里）
+        pred = cam_forward(x_t, t_vec)    # 形状通常是 [B,4,H,W]
+        # 2) 标量目标并反传
+        S = pred.sum()
+        S.backward(retain_graph=True)
+
+    # 3) 从 hooks 读取 A/dA，并统一到 [B,L,D]
+    A  = activations['value']
+    dA = gradients['value']
+    # if A.dim()==3 and A.shape[-1]!=A.shape[-2]:
+    #     A  = A.transpose(1,2).contiguous()
+    #     dA = dA.transpose(1,2).contiguous()
+
+    # 4) 只取图像 tokens → 还原 2D 网格 → Grad-CAM
+    N_img, H_p, W_p = infer_image_tokens(x_t, patch_size=patch_size)
+    extras = 1 + num_clip_token                           # time(1) + text(num_clip_token)
+    A_img  = A[:, extras:extras+N_img, :]                 # [B,N_img,D]
+    dA_img = dA[:, extras:extras+N_img, :]
+
+    A_2d  = A_img.transpose(1,2).contiguous().view(x_t.size(0), -1, H_p, W_p)   # [B,D,H_p,W_p]
+    dA_2d = dA_img.transpose(1,2).contiguous().view(x_t.size(0), -1, H_p, W_p)  # [B,D,H_p,W_p]
+
+    alpha   = dA_2d.mean(dim=(2,3))                      # [B,D]
+    weights = alpha.unsqueeze(-1).unsqueeze(-1)          # [B,D,1,1]
+    cam_low = (weights * A_2d).sum(dim=1, keepdim=True).relu()  # [B,1,H_p,W_p]
+    return cam_low
+
+def _overlay_cam_rgb(base_img_01, cam01, alpha=0.4, use_colormap=True):
+    """
+    base_img_01: [B,3,H,W], 0~1
+    cam01:       [B,1,H,W], 0~1
+    返回: overlay [B,3,H,W], heatmap_rgb [B,3,H,W]
+    """
+    B, _, H, W = base_img_01.shape
+    cam_np = (cam01[0,0].detach().cpu().numpy()*255).astype(np.uint8)
+
+    heatmap_rgb = None
+    if use_colormap:
+        try:
+            import cv2
+            hm = cv2.applyColorMap(cam_np, cv2.COLORMAP_JET)[:, :, ::-1] / 255.0  # BGR->RGB
+            heatmap_rgb = torch.from_numpy(hm).permute(2,0,1).unsqueeze(0).float().to(base_img_01.device)  # [1,3,H,W]
+        except Exception:
+            use_colormap = False
+
+    if not use_colormap:
+        heatmap_rgb = cam01.repeat(1,3,1,1)  # 退化为灰度
+
+    overlay = (1 - alpha) * base_img_01 + alpha * heatmap_rgb
+    overlay = overlay.clamp(0,1)
+    return overlay, heatmap_rgb
+
+    # ====== 多步 CAM 采集工具 ======
+def _should_capture(step_counter, cam_steps=None, cam_stride=None, cam_limit=None, already_captured=0):
+    """
+    决定当前步是否需要做 CAM：
+    - cam_steps: list[int]，明确指哪些外部步
+    - cam_stride: int，每隔多少步采一次（从1开始计数）
+    - cam_limit: 最多采集多少帧（None=不限制）
+    二者都提供时，满足其一即可；优先检查 cam_steps 命中。
+    """
+    if cam_limit is not None and already_captured >= cam_limit:
+        return False
+    if cam_steps is not None:
+        if step_counter in cam_steps:
+            return True
+    if cam_stride is not None and cam_stride > 0:
+        if (step_counter % cam_stride) == 0:
+            return True
+    return False
+
+def _append_cam_slot(obj, step_counter, cam_low, x_req, t_vec):
+    """
+    把当前帧存入对象 obj（通常是 dpm_solver 实例）。
+    """
+    if not hasattr(obj, "cams"):
+        obj.cams = []
+    obj.cams.append({
+        "step": int(step_counter),
+        "cam_low": cam_low.detach().cpu(),     # [B,1,H_p,W_p]
+        "latent": x_req.detach().cpu(),        # [B,4,H_lat,W_lat]
+        "t": t_vec.detach().cpu(),             # [B]
+    })

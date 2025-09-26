@@ -12,6 +12,7 @@ import libs.autoencoder
 import libs.clip
 from torchvision.utils import save_image
 from tools.Visualization.Vision.uvit_attention_vis import UViTAttentionMonitor, UViTAttnStore
+from tools.Visualization.Vision.enhanced_attention_vis import EnhancedAttentionVisualizer
 import numpy as np
 import os
 os.CUDA_VISIBLE_DEVICES = '0,1'
@@ -106,12 +107,14 @@ def evaluate(config):
 
     # 创建注意力监控器
     attn_monitor = None
+    enhanced_visualizer = None
     if config.get('visualize_attention', False):
         # 确保获取到的模型是正确的
         model = accelerator.unwrap_model(nnet)
         print(f"模型类型: {type(model)}")
         
         attn_monitor = UViTAttentionMonitor(model)
+        enhanced_visualizer = EnhancedAttentionVisualizer()
         
         # 注册钩子 - 为U-ViT指定块标识
         # 确保block_indices是列表
@@ -128,10 +131,15 @@ def evaluate(config):
         
         # 提取要关注的单词索引
         word_indices = []
+        words_list = []  # 存储解码后的词汇
         blind_words = ["there","the", "and", "with", "from", "for", "this", "that", "a", "some", "an", "is", "are", "to", "of", "on", "in", "at", "as", "by", "it", "its", "which", "who", "what", "where", "when"]
         label = ["atelectasis", "cardiomegaly", "effusion", "infiltration", "mass", "nodule", "pneumonia", "pneumothorax", "consolidation", "edema", "emphysema", "fibrosis", "pleural_thickening", "hernia"]
         for item in tokens:
             found = False
+            # 解码tokens为实际词汇
+            words = [clip.tokenizer.decode([token]) if hasattr(clip, 'tokenizer') else str(token) for token in item]
+            words_list.append(words)
+            
             for i, token in enumerate(item):
                 if len(token) > 3 and token in label and token not in blind_words:
                     word_indices.append(i)
@@ -223,6 +231,40 @@ def evaluate(config):
 
         # 可视化所有注意力图
         attn_monitor.visualize_all(attn_dir, word_indices)
+        
+        # 增强的可视化功能
+        if enhanced_visualizer is not None and hasattr(attn_monitor, 'attention_stores') and attn_monitor.attention_stores:
+            # 获取注意力权重
+            attention_weights = {}
+            for layer_name, store in attn_monitor.attention_stores.items():
+                if hasattr(store, 'attention_weights') and store.attention_weights:
+                    attention_weights[layer_name] = store.attention_weights[-1]  # 获取最新的注意力权重
+            
+            if attention_weights and len(words_list) > 0:
+                for i, (sample, prompt, words) in enumerate(zip(samples, prompts, words_list)):
+                    # 创建增强的词汇注意力热图
+                    enhanced_visualizer.visualize_word_attention_heatmap(
+                        attention_weights=attention_weights,
+                        words=words,
+                        generated_image=sample,
+                        save_path=os.path.join(attn_dir, f"enhanced_word_attention_{i}.png")
+                    )
+                    
+                    # 创建注意力分析报告
+                    enhanced_visualizer.create_attention_analysis_report(
+                        attention_weights=attention_weights,
+                        words=words,
+                        prompt=prompt,
+                        save_path=os.path.join(attn_dir, f"attention_analysis_report_{i}.html")
+                    )
+                    
+                    # 创建渐进式注意力可视化
+                    enhanced_visualizer.create_progressive_attention_visualization(
+                        attention_weights=attention_weights,
+                        words=words,
+                        generated_image=sample,
+                        save_path=os.path.join(attn_dir, f"progressive_attention_{i}.gif")
+                    )
         
         # 移除钩子，避免内存泄漏
         attn_monitor.remove_hooks()

@@ -1,6 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Debug extract_CXR14_feature.py",
             "type": "debugpy",
@@ -87,6 +88,36 @@
                 "train_t2i_discrete_VAP.py",
                 "--config=configs/VAP_Xray14_unet_t2i.py"
             ]
+        },
+        {
+        "name": "Debug sample_t2i_discrete_gradCam_enhanced",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder}/sample_t2i_discrete_gradCam_enhanced.py",
+        "console": "integratedTerminal",
+        "justMyCode": false,
+        "args": [
+            "--config", "configs/sample/chestXray14_uvit_small_t2i_bert.py",
+            "--nnet_path", "/storage/U-ViT/workdir/chestXray14_uvit_small_t2i_bert/BioLinkBERT-base/ckpts/65000.ckpt/nnet.pth",
+            "--output_path", "./outputs",
+            "--input_text", "chest x-ray showing pneumonia in the right lung",
+            "--keyword", "pneumonia"
+        ]
+        },
+        {
+        "name": "Debug sample_t2i_discrete_uvit_small_gradCam",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder}/sample_t2i_discrete_uvit_small_gradCam.py",
+        "console": "integratedTerminal",
+        "justMyCode": false,
+        "args": [
+            "--config", "configs/sample/chestXray14_uvit_small_t2i_bert.py",
+            "--nnet_path", "/storage/U-ViT/workdir/chestXray14_uvit_small_t2i_bert/BioLinkBERT-base/ckpts/65000.ckpt/nnet.pth",
+            "--output_path", "./outputs",
+            "--input_text", "chest x-ray showing pneumonia in the left lung",
+            "--output_filename", "left_pneumonia.png"
+        ]
         }
     ]
 }

@@ -18,20 +18,21 @@ def get_config():
         scale_factor=0.18215
     )
 
-    config.train = d(
-        n_steps=100000,
-        batch_size=2,
-        log_interval=10,
-        eval_interval=2,
-        save_interval=2,
-    )
     # config.train = d(
     #     n_steps=100000,
     #     batch_size=2,
     #     log_interval=10,
-    #     eval_interval=2000,
-    #     save_interval=2000,
+    #     eval_interval=2,
+    #     save_interval=2,
     # )
+
+    config.train = d(
+        n_steps=100000,
+        batch_size=32,
+        log_interval=10,
+        eval_interval=2000,
+        save_interval=2000,
+    )
 
     config.optimizer = d(
         name='adamw',
@@ -49,19 +50,19 @@ def get_config():
         name='unet_t2i_label_pron',
         image_size=32,
         in_channels=4,
-        model_channels=320,
+        model_channels=256,
         out_channels=4,
         num_res_blocks=2,
         attention_resolutions="16,8",
         dropout=0.0,
-        channel_mult=(1, 2, 4, 8),
+        channel_mult=(1, 2, 4),
         num_classes=16,
         use_checkpoint=False,
-        num_heads=8,
-        num_head_channels=40,
+        num_heads=8,  
+        num_head_channels=32,  
         use_scale_shift_norm=False,
-        clip_dim=768,
-        num_clip_token=256,
+        clip_dim=768, 
+        num_clip_token=256, 
     )
 
     config.dataset = d(

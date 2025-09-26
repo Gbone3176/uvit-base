@@ -9,3 +9,7 @@ workdir/
 scripts/Vis_caps/
 .vscode/
 .trae/
+./outputs/
+./outputs_tmp/
+pyrightconfig.json
+test_dit_metrics.py
